@@ -3,7 +3,6 @@ package com.hsiaower.scoreboard.ui
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -30,7 +29,6 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
-import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -134,10 +132,7 @@ private fun ScoreboardScreen(
         val isLandscape = maxWidth > maxHeight
 
         if (isLandscape) {
-            Row(
-                modifier = Modifier.fillMaxSize().padding(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
+            Row(modifier = Modifier.fillMaxSize()) {
                 TeamZone(
                     modifier = Modifier.weight(1f).fillMaxHeight(),
                     teamName = state.settings.team1Name,
@@ -160,10 +155,7 @@ private fun ScoreboardScreen(
                 )
             }
         } else {
-            Column(
-                modifier = Modifier.fillMaxSize().padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-            ) {
+            Column(modifier = Modifier.fillMaxSize()) {
                 TeamZone(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                     teamName = state.settings.team1Name,
@@ -277,35 +269,28 @@ private fun TeamZone(
     onEditName: () -> Unit,
 ) {
     var dragDistance by remember { mutableFloatStateOf(0f) }
-    val cardShape = RoundedCornerShape(24.dp)
 
-    Card(
-        modifier = modifier,
-        shape = cardShape,
-        colors = CardDefaults.cardColors(containerColor = color),
-        border = if (isWinner) BorderStroke(4.dp, Color(0xFFFFD54F)) else null,
+    BoxWithConstraints(
+        modifier = modifier
+            .background(color)
+            .pointerInput(Unit) {
+                detectVerticalDragGestures(
+                    onDragStart = { dragDistance = 0f },
+                    onVerticalDrag = { change, dragAmount ->
+                        change.consume()
+                        dragDistance += dragAmount
+                    },
+                    onDragEnd = {
+                        if (abs(dragDistance) >= 48f) {
+                            onAdjust(if (dragDistance < 0f) 1 else -1)
+                        }
+                        dragDistance = 0f
+                    },
+                    onDragCancel = { dragDistance = 0f },
+                )
+            },
+        contentAlignment = Alignment.Center,
     ) {
-        BoxWithConstraints(
-            modifier = Modifier
-                .fillMaxSize()
-                .pointerInput(Unit) {
-                    detectVerticalDragGestures(
-                        onDragStart = { dragDistance = 0f },
-                        onVerticalDrag = { change, dragAmount ->
-                            change.consume()
-                            dragDistance += dragAmount
-                        },
-                        onDragEnd = {
-                            if (abs(dragDistance) >= 48f) {
-                                onAdjust(if (dragDistance < 0f) 1 else -1)
-                            }
-                            dragDistance = 0f
-                        },
-                        onDragCancel = { dragDistance = 0f },
-                    )
-                },
-            contentAlignment = Alignment.Center,
-        ) {
             val scoreText = score.toString()
             val scoreWidthSize = maxWidth.value / (scoreText.length.coerceAtLeast(2) * 0.58f)
             val nameWidthSize = maxWidth.value / (teamName.length.coerceAtLeast(6) * 0.60f)
@@ -381,7 +366,6 @@ private fun TeamZone(
                         },
                 )
             }
-        }
     }
 }
 
