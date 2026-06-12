@@ -1,5 +1,7 @@
 package com.hsiaower.scoreboard.ui
 
+import android.os.Build
+import android.view.RoundedCorner
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -8,7 +10,6 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.absolutePadding
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -24,12 +25,14 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.displayCutout
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.AbsoluteRoundedCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.layout.statusBars
-import androidx.compose.foundation.layout.union
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -55,7 +58,8 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -79,6 +83,13 @@ import kotlin.math.abs
 private val Team1Blue = Color(0xFF1D4ED8)
 private val Team2Red = Color(0xFFB91C1C)
 private val AppBackground = Color(0xFF111827)
+
+private data class ScreenCornerRadii(
+    val topLeft: Float = 0f,
+    val topRight: Float = 0f,
+    val bottomRight: Float = 0f,
+    val bottomLeft: Float = 0f,
+)
 
 @Composable
 fun ScoreboardApp(viewModel: ScoreboardViewModel) {
@@ -134,30 +145,10 @@ private fun ScoreboardScreen(
 ) {
     var editingScoreTeam by remember { mutableStateOf<Team?>(null) }
     var editingNameTeam by remember { mutableStateOf<Team?>(null) }
+    val cornerRadii = rememberScreenCornerRadii()
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val isLandscape = maxWidth > maxHeight
-        val density = LocalDensity.current
-        val layoutDirection = LocalLayoutDirection.current
-        val iconInsets = WindowInsets.statusBars.union(WindowInsets.displayCutout)
-        val iconLeftInset = maxOf(
-            12.dp,
-            with(density) {
-                iconInsets.getLeft(this, layoutDirection).toDp() + 8.dp
-            },
-        )
-        val iconRightInset = maxOf(
-            12.dp,
-            with(density) {
-                iconInsets.getRight(this, layoutDirection).toDp() + 8.dp
-            },
-        )
-        val iconTopInset = maxOf(
-            8.dp,
-            with(density) {
-                iconInsets.getTop(this).toDp() + 6.dp
-            },
-        )
 
         if (isLandscape) {
             Row(modifier = Modifier.fillMaxSize()) {
@@ -170,6 +161,10 @@ private fun ScoreboardScreen(
                     onAdjust = { onAdjust(Team.TEAM_1, it) },
                     onEditScore = { editingScoreTeam = Team.TEAM_1 },
                     onEditName = { editingNameTeam = Team.TEAM_1 },
+                    borderCornerRadii = ScreenCornerRadii(
+                        topLeft = cornerRadii.topLeft,
+                        bottomLeft = cornerRadii.bottomLeft,
+                    ),
                 )
                 TeamZone(
                     modifier = Modifier.weight(1f).fillMaxHeight(),
@@ -180,6 +175,10 @@ private fun ScoreboardScreen(
                     onAdjust = { onAdjust(Team.TEAM_2, it) },
                     onEditScore = { editingScoreTeam = Team.TEAM_2 },
                     onEditName = { editingNameTeam = Team.TEAM_2 },
+                    borderCornerRadii = ScreenCornerRadii(
+                        topRight = cornerRadii.topRight,
+                        bottomRight = cornerRadii.bottomRight,
+                    ),
                 )
             }
         } else {
@@ -193,6 +192,10 @@ private fun ScoreboardScreen(
                     onAdjust = { onAdjust(Team.TEAM_1, it) },
                     onEditScore = { editingScoreTeam = Team.TEAM_1 },
                     onEditName = { editingNameTeam = Team.TEAM_1 },
+                    borderCornerRadii = ScreenCornerRadii(
+                        topLeft = cornerRadii.topLeft,
+                        topRight = cornerRadii.topRight,
+                    ),
                 )
                 TeamZone(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -203,6 +206,10 @@ private fun ScoreboardScreen(
                     onAdjust = { onAdjust(Team.TEAM_2, it) },
                     onEditScore = { editingScoreTeam = Team.TEAM_2 },
                     onEditName = { editingNameTeam = Team.TEAM_2 },
+                    borderCornerRadii = ScreenCornerRadii(
+                        bottomLeft = cornerRadii.bottomLeft,
+                        bottomRight = cornerRadii.bottomRight,
+                    ),
                 )
             }
         }
@@ -213,7 +220,12 @@ private fun ScoreboardScreen(
             onClick = onReset,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .absolutePadding(left = iconLeftInset, top = iconTopInset),
+                .windowInsetsPadding(
+                    WindowInsets.safeDrawing.only(
+                        WindowInsetsSides.Start + WindowInsetsSides.Top,
+                    ),
+                )
+                .padding(4.dp),
         )
         MinimalIconButton(
             iconResource = R.drawable.ic_settings,
@@ -221,7 +233,12 @@ private fun ScoreboardScreen(
             onClick = onSettings,
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .absolutePadding(right = iconRightInset, top = iconTopInset),
+                .windowInsetsPadding(
+                    WindowInsets.safeDrawing.only(
+                        WindowInsetsSides.End + WindowInsetsSides.Top,
+                    ),
+                )
+                .padding(4.dp),
         )
 
         AnimatedVisibility(
@@ -293,6 +310,7 @@ private fun TeamZone(
     onAdjust: (Int) -> Unit,
     onEditScore: () -> Unit,
     onEditName: () -> Unit,
+    borderCornerRadii: ScreenCornerRadii,
 ) {
     var dragDistance by remember { mutableFloatStateOf(0f) }
 
@@ -394,14 +412,61 @@ private fun TeamZone(
         }
 
         if (isWinner) {
+            val borderInset = 8.dp
+            val borderShape = AbsoluteRoundedCornerShape(
+                topLeft = (borderCornerRadii.topLeft - borderInset.value).coerceAtLeast(0f).dp,
+                topRight = (borderCornerRadii.topRight - borderInset.value).coerceAtLeast(0f).dp,
+                bottomRight =
+                    (borderCornerRadii.bottomRight - borderInset.value).coerceAtLeast(0f).dp,
+                bottomLeft =
+                    (borderCornerRadii.bottomLeft - borderInset.value).coerceAtLeast(0f).dp,
+            )
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(16.dp)
-                    .border(6.dp, Color(0xFFFFD54F)),
+                    .padding(borderInset)
+                    .border(3.dp, Color(0xFFFFD54F), borderShape),
             )
         }
     }
+}
+
+@Composable
+private fun rememberScreenCornerRadii(): ScreenCornerRadii {
+    val view = LocalView.current
+    val density = LocalDensity.current
+    val configuration = LocalConfiguration.current
+    var radii by remember {
+        mutableStateOf(
+            ScreenCornerRadii(
+                topLeft = 12f,
+                topRight = 12f,
+                bottomRight = 12f,
+                bottomLeft = 12f,
+            ),
+        )
+    }
+
+    LaunchedEffect(view, configuration.orientation) {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return@LaunchedEffect
+        view.post {
+            val insets = view.rootWindowInsets ?: return@post
+            with(density) {
+                radii = ScreenCornerRadii(
+                    topLeft = insets.getRoundedCorner(RoundedCorner.POSITION_TOP_LEFT)
+                        ?.radius?.toDp()?.value ?: 12f,
+                    topRight = insets.getRoundedCorner(RoundedCorner.POSITION_TOP_RIGHT)
+                        ?.radius?.toDp()?.value ?: 12f,
+                    bottomRight = insets.getRoundedCorner(RoundedCorner.POSITION_BOTTOM_RIGHT)
+                        ?.radius?.toDp()?.value ?: 12f,
+                    bottomLeft = insets.getRoundedCorner(RoundedCorner.POSITION_BOTTOM_LEFT)
+                        ?.radius?.toDp()?.value ?: 12f,
+                )
+            }
+        }
+    }
+
+    return radii
 }
 
 @Composable
