@@ -24,15 +24,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
-import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
-import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.AbsoluteRoundedCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
-import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -220,11 +216,7 @@ private fun ScoreboardScreen(
             onClick = onReset,
             modifier = Modifier
                 .align(Alignment.TopStart)
-                .windowInsetsPadding(
-                    WindowInsets.safeDrawing.only(
-                        WindowInsetsSides.Start + WindowInsetsSides.Top,
-                    ),
-                )
+                .statusBarsPadding()
                 .padding(4.dp),
         )
         MinimalIconButton(
@@ -233,11 +225,7 @@ private fun ScoreboardScreen(
             onClick = onSettings,
             modifier = Modifier
                 .align(Alignment.TopEnd)
-                .windowInsetsPadding(
-                    WindowInsets.safeDrawing.only(
-                        WindowInsetsSides.End + WindowInsetsSides.Top,
-                    ),
-                )
+                .statusBarsPadding()
                 .padding(4.dp),
         )
 
@@ -412,19 +400,15 @@ private fun TeamZone(
         }
 
         if (isWinner) {
-            val borderInset = 8.dp
             val borderShape = AbsoluteRoundedCornerShape(
-                topLeft = (borderCornerRadii.topLeft - borderInset.value).coerceAtLeast(0f).dp,
-                topRight = (borderCornerRadii.topRight - borderInset.value).coerceAtLeast(0f).dp,
-                bottomRight =
-                    (borderCornerRadii.bottomRight - borderInset.value).coerceAtLeast(0f).dp,
-                bottomLeft =
-                    (borderCornerRadii.bottomLeft - borderInset.value).coerceAtLeast(0f).dp,
+                topLeft = borderCornerRadii.topLeft.dp,
+                topRight = borderCornerRadii.topRight.dp,
+                bottomRight = borderCornerRadii.bottomRight.dp,
+                bottomLeft = borderCornerRadii.bottomLeft.dp,
             )
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .padding(borderInset)
                     .border(3.dp, Color(0xFFFFD54F), borderShape),
             )
         }
