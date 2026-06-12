@@ -22,13 +22,17 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
-import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
@@ -54,6 +58,7 @@ import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -132,7 +137,7 @@ private fun ScoreboardScreen(
             Row(modifier = Modifier.fillMaxSize()) {
                 TeamZone(
                     modifier = Modifier.weight(1f).fillMaxHeight(),
-                    teamName = "Team 1",
+                    teamName = state.settings.team1Name,
                     score = state.team1Score,
                     color = Team1Blue,
                     isWinner = state.winner == Team.TEAM_1,
@@ -141,7 +146,7 @@ private fun ScoreboardScreen(
                 )
                 TeamZone(
                     modifier = Modifier.weight(1f).fillMaxHeight(),
-                    teamName = "Team 2",
+                    teamName = state.settings.team2Name,
                     score = state.team2Score,
                     color = Team2Red,
                     isWinner = state.winner == Team.TEAM_2,
@@ -153,7 +158,7 @@ private fun ScoreboardScreen(
             Column(modifier = Modifier.fillMaxSize()) {
                 TeamZone(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
-                    teamName = "Team 1",
+                    teamName = state.settings.team1Name,
                     score = state.team1Score,
                     color = Team1Blue,
                     isWinner = state.winner == Team.TEAM_1,
@@ -162,7 +167,7 @@ private fun ScoreboardScreen(
                 )
                 TeamZone(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
-                    teamName = "Team 2",
+                    teamName = state.settings.team2Name,
                     score = state.team2Score,
                     color = Team2Red,
                     isWinner = state.winner == Team.TEAM_2,
@@ -172,22 +177,30 @@ private fun ScoreboardScreen(
             }
         }
 
-        MinimalIconButton(
-            iconResource = R.drawable.ic_refresh,
-            contentDescription = "Reset scores",
-            onClick = onReset,
+        Box(
             modifier = Modifier
-                .align(Alignment.TopStart)
-                .padding(4.dp),
-        )
-        MinimalIconButton(
-            iconResource = R.drawable.ic_settings,
-            contentDescription = "Open settings",
-            onClick = onSettings,
-            modifier = Modifier
-                .align(Alignment.TopEnd)
-                .padding(4.dp),
-        )
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .windowInsetsPadding(
+                    WindowInsets.safeDrawing.only(
+                        WindowInsetsSides.Top + WindowInsetsSides.Horizontal,
+                    ),
+                )
+                .padding(horizontal = 10.dp, vertical = 8.dp),
+        ) {
+            MinimalIconButton(
+                iconResource = R.drawable.ic_refresh,
+                contentDescription = "Reset scores",
+                onClick = onReset,
+                modifier = Modifier.align(Alignment.TopStart),
+            )
+            MinimalIconButton(
+                iconResource = R.drawable.ic_settings,
+                contentDescription = "Open settings",
+                onClick = onSettings,
+                modifier = Modifier.align(Alignment.TopEnd),
+            )
+        }
 
         AnimatedVisibility(
             visible = showOnboardingHint,
@@ -213,7 +226,11 @@ private fun ScoreboardScreen(
 
     editingTeam?.let { team ->
         val currentScore = if (team == Team.TEAM_1) state.team1Score else state.team2Score
-        val teamName = if (team == Team.TEAM_1) "Team 1" else "Team 2"
+        val teamName = if (team == Team.TEAM_1) {
+            state.settings.team1Name
+        } else {
+            state.settings.team2Name
+        }
         EditScoreDialog(
             teamName = teamName,
             currentScore = currentScore,
@@ -267,7 +284,12 @@ private fun TeamZone(
         val scoreWidthSize = maxWidth.value / (scoreText.length.coerceAtLeast(2) * 0.58f)
         val scoreHeightSize = maxHeight.value * 0.60f
         val scoreFontSize = minOf(scoreWidthSize, scoreHeightSize).coerceIn(46f, 320f).sp
-        val nameFontSize = minOf(maxWidth.value * 0.11f, maxHeight.value * 0.12f)
+        val nameWidthSize = maxWidth.value / (teamName.length.coerceAtLeast(6) * 0.60f)
+        val nameFontSize = minOf(
+            maxWidth.value * 0.11f,
+            maxHeight.value * 0.12f,
+            nameWidthSize,
+        )
             .coerceIn(20f, 54f)
             .sp
         val headerHeight = (nameFontSize.value * 1.7f).dp
@@ -298,6 +320,8 @@ private fun TeamZone(
                     lineHeight = nameFontSize,
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    modifier = Modifier.padding(horizontal = 8.dp),
                 )
             }
             Text(
@@ -386,9 +410,7 @@ private fun MinimalIconButton(
 ) {
     IconButton(
         onClick = onClick,
-        modifier = modifier
-            .size(44.dp)
-            .background(Color.Black.copy(alpha = 0.28f), RoundedCornerShape(12.dp)),
+        modifier = modifier.size(48.dp),
     ) {
         Icon(
             painter = painterResource(iconResource),
@@ -410,12 +432,32 @@ private fun SettingsScreen(
     var winByTwo by remember(settings) { mutableStateOf(settings.winByTwo) }
     var hardCapEnabled by remember(settings) { mutableStateOf(settings.hardCapEnabled) }
     var hardCapScore by remember(settings) { mutableStateOf(settings.hardCapScore.toString()) }
+    var team1Name by remember(settings) { mutableStateOf(settings.team1Name) }
+    var team2Name by remember(settings) { mutableStateOf(settings.team2Name) }
     val parsedWinningScore = winningScore.toIntOrNull()?.takeIf { it > 0 }
     val parsedHardCapScore = hardCapScore.toIntOrNull()?.takeIf { it > 0 }
     val canSave = parsedWinningScore != null &&
-        (!winByTwo || !hardCapEnabled || parsedHardCapScore != null)
+        (!winByTwo || !hardCapEnabled || parsedHardCapScore != null) &&
+        team1Name.isNotBlank() &&
+        team2Name.isNotBlank()
 
     SettingsPage(title = "Game Settings", onBack = onBack) {
+        OutlinedTextField(
+            value = team1Name,
+            onValueChange = { team1Name = it.take(30) },
+            label = { Text("Team 1 name") },
+            supportingText = { Text("${team1Name.length}/30") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
+        OutlinedTextField(
+            value = team2Name,
+            onValueChange = { team2Name = it.take(30) },
+            label = { Text("Team 2 name") },
+            supportingText = { Text("${team2Name.length}/30") },
+            singleLine = true,
+            modifier = Modifier.fillMaxWidth(),
+        )
         NumberField(
             label = "Winning score",
             value = winningScore,
@@ -450,6 +492,8 @@ private fun SettingsScreen(
                         winByTwo = winByTwo,
                         hardCapEnabled = winByTwo && hardCapEnabled,
                         hardCapScore = parsedHardCapScore ?: 30,
+                        team1Name = team1Name.trim(),
+                        team2Name = team2Name.trim(),
                     ),
                 )
             },

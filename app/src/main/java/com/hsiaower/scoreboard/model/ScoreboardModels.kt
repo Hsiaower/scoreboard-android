@@ -30,6 +30,8 @@ data class GameSettings(
     val winByTwo: Boolean = true,
     val hardCapEnabled: Boolean = false,
     val hardCapScore: Int = 30,
+    val team1Name: String = "Team 1",
+    val team2Name: String = "Team 2",
 )
 
 data class ScoreboardState(

@@ -24,6 +24,8 @@ class SettingsRepository(private val context: Context) {
             winByTwo = winByTwo,
             hardCapEnabled = winByTwo && (preferences[HARD_CAP_ENABLED] ?: false),
             hardCapScore = preferences[HARD_CAP_SCORE] ?: 30,
+            team1Name = normalizeTeamName(preferences[TEAM_1_NAME], "Team 1"),
+            team2Name = normalizeTeamName(preferences[TEAM_2_NAME], "Team 2"),
         )
     }
 
@@ -45,6 +47,8 @@ class SettingsRepository(private val context: Context) {
             preferences[WIN_BY_TWO] = settings.winByTwo
             preferences[HARD_CAP_ENABLED] = settings.winByTwo && settings.hardCapEnabled
             preferences[HARD_CAP_SCORE] = settings.hardCapScore.coerceAtLeast(1)
+            preferences[TEAM_1_NAME] = normalizeTeamName(settings.team1Name, "Team 1")
+            preferences[TEAM_2_NAME] = normalizeTeamName(settings.team2Name, "Team 2")
         }
     }
 
@@ -73,10 +77,15 @@ class SettingsRepository(private val context: Context) {
     private fun inputTypeKey(action: RemoteAction): Preferences.Key<String> =
         stringPreferencesKey("remote_${action.name}_input_type")
 
+    private fun normalizeTeamName(name: String?, defaultName: String): String =
+        name?.trim()?.take(30)?.ifBlank { defaultName } ?: defaultName
+
     private companion object {
         val WINNING_SCORE = intPreferencesKey("winning_score")
         val WIN_BY_TWO = booleanPreferencesKey("win_by_two")
         val HARD_CAP_ENABLED = booleanPreferencesKey("hard_cap_enabled")
         val HARD_CAP_SCORE = intPreferencesKey("hard_cap_score")
+        val TEAM_1_NAME = stringPreferencesKey("team_1_name")
+        val TEAM_2_NAME = stringPreferencesKey("team_2_name")
     }
 }
