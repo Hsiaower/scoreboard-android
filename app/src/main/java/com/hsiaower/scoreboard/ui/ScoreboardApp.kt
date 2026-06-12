@@ -47,6 +47,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
@@ -302,10 +304,13 @@ private fun TeamZone(
                 .coerceIn(16f, 54f)
                 .sp
             val headerHeight = (maxHeight.value * 0.25f).coerceIn(64f, 132f).dp
-            val crownAreaHeight = (maxHeight.value * 0.09f).coerceIn(22f, 42f).dp
-            val crownSize = minOf(maxWidth.value * 0.07f, maxHeight.value * 0.08f)
-                .coerceIn(18f, 34f)
+            val crownSize = minOf(maxWidth.value * 0.10f, maxHeight.value * 0.12f)
+                .coerceIn(28f, 46f)
                 .dp
+            val crownAreaHeight = maxOf(
+                (maxHeight.value * 0.13f).coerceIn(36f, 58f).dp,
+                crownSize + 12.dp,
+            )
             val scoreAreaHeight = maxHeight - headerHeight
             val scoreHeightSize = scoreAreaHeight.value * 0.78f
             val scoreFontSize = minOf(scoreWidthSize, scoreHeightSize).coerceIn(46f, 320f).sp
@@ -334,8 +339,9 @@ private fun TeamZone(
                     .align(Alignment.TopCenter)
                     .fillMaxWidth()
                     .height(headerHeight)
-                    .padding(horizontal = 52.dp, vertical = 4.dp),
+                    .padding(horizontal = 52.dp, vertical = 2.dp),
                 horizontalAlignment = Alignment.CenterHorizontally,
+                verticalArrangement = Arrangement.Bottom,
             ) {
                 Box(
                     modifier = Modifier.fillMaxWidth().height(crownAreaHeight),
@@ -346,7 +352,21 @@ private fun TeamZone(
                             painter = painterResource(R.drawable.ic_crown),
                             contentDescription = "$teamName winner",
                             tint = Color.Unspecified,
-                            modifier = Modifier.size(crownSize),
+                            modifier = Modifier
+                                .size(crownSize + 12.dp)
+                                .drawBehind {
+                                    drawCircle(
+                                        brush = Brush.radialGradient(
+                                            colors = listOf(
+                                                Color(0xFFFFD54F).copy(alpha = 0.48f),
+                                                Color(0xFFFFD54F).copy(alpha = 0.16f),
+                                                Color.Transparent,
+                                            ),
+                                        ),
+                                        radius = size.minDimension / 2f,
+                                    )
+                                }
+                                .padding(6.dp),
                         )
                     }
                 }
