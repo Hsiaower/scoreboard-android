@@ -24,16 +24,12 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.WindowInsets
-import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.foundation.layout.only
-import androidx.compose.foundation.layout.safeDrawing
 import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.union
-import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -141,6 +137,27 @@ private fun ScoreboardScreen(
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val isLandscape = maxWidth > maxHeight
+        val density = LocalDensity.current
+        val layoutDirection = LocalLayoutDirection.current
+        val iconInsets = WindowInsets.statusBars.union(WindowInsets.displayCutout)
+        val iconLeftInset = maxOf(
+            12.dp,
+            with(density) {
+                iconInsets.getLeft(this, layoutDirection).toDp() + 8.dp
+            },
+        )
+        val iconRightInset = maxOf(
+            12.dp,
+            with(density) {
+                iconInsets.getRight(this, layoutDirection).toDp() + 8.dp
+            },
+        )
+        val iconTopInset = maxOf(
+            8.dp,
+            with(density) {
+                iconInsets.getTop(this).toDp() + 6.dp
+            },
+        )
 
         if (isLandscape) {
             Row(modifier = Modifier.fillMaxSize()) {
@@ -153,10 +170,6 @@ private fun ScoreboardScreen(
                     onAdjust = { onAdjust(Team.TEAM_1, it) },
                     onEditScore = { editingScoreTeam = Team.TEAM_1 },
                     onEditName = { editingNameTeam = Team.TEAM_1 },
-                    protectLeftEdge = true,
-                    protectRightEdge = false,
-                    protectTopEdge = true,
-                    protectBottomEdge = true,
                 )
                 TeamZone(
                     modifier = Modifier.weight(1f).fillMaxHeight(),
@@ -167,10 +180,6 @@ private fun ScoreboardScreen(
                     onAdjust = { onAdjust(Team.TEAM_2, it) },
                     onEditScore = { editingScoreTeam = Team.TEAM_2 },
                     onEditName = { editingNameTeam = Team.TEAM_2 },
-                    protectLeftEdge = false,
-                    protectRightEdge = true,
-                    protectTopEdge = true,
-                    protectBottomEdge = true,
                 )
             }
         } else {
@@ -184,10 +193,6 @@ private fun ScoreboardScreen(
                     onAdjust = { onAdjust(Team.TEAM_1, it) },
                     onEditScore = { editingScoreTeam = Team.TEAM_1 },
                     onEditName = { editingNameTeam = Team.TEAM_1 },
-                    protectLeftEdge = true,
-                    protectRightEdge = true,
-                    protectTopEdge = true,
-                    protectBottomEdge = false,
                 )
                 TeamZone(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -198,38 +203,26 @@ private fun ScoreboardScreen(
                     onAdjust = { onAdjust(Team.TEAM_2, it) },
                     onEditScore = { editingScoreTeam = Team.TEAM_2 },
                     onEditName = { editingNameTeam = Team.TEAM_2 },
-                    protectLeftEdge = true,
-                    protectRightEdge = true,
-                    protectTopEdge = false,
-                    protectBottomEdge = true,
                 )
             }
         }
 
-        Box(
+        MinimalIconButton(
+            iconResource = R.drawable.ic_refresh,
+            contentDescription = "Reset scores",
+            onClick = onReset,
             modifier = Modifier
-                .align(Alignment.TopCenter)
-                .fillMaxWidth()
-                .windowInsetsPadding(
-                    WindowInsets.statusBars.union(WindowInsets.displayCutout).only(
-                        WindowInsetsSides.Top + WindowInsetsSides.Horizontal,
-                    ),
-                )
-                .padding(horizontal = 10.dp, vertical = 8.dp),
-        ) {
-            MinimalIconButton(
-                iconResource = R.drawable.ic_refresh,
-                contentDescription = "Reset scores",
-                onClick = onReset,
-                modifier = Modifier.align(Alignment.TopStart),
-            )
-            MinimalIconButton(
-                iconResource = R.drawable.ic_settings,
-                contentDescription = "Open settings",
-                onClick = onSettings,
-                modifier = Modifier.align(Alignment.TopEnd),
-            )
-        }
+                .align(Alignment.TopStart)
+                .absolutePadding(left = iconLeftInset, top = iconTopInset),
+        )
+        MinimalIconButton(
+            iconResource = R.drawable.ic_settings,
+            contentDescription = "Open settings",
+            onClick = onSettings,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .absolutePadding(right = iconRightInset, top = iconTopInset),
+        )
 
         AnimatedVisibility(
             visible = showOnboardingHint,
@@ -300,10 +293,6 @@ private fun TeamZone(
     onAdjust: (Int) -> Unit,
     onEditScore: () -> Unit,
     onEditName: () -> Unit,
-    protectLeftEdge: Boolean,
-    protectRightEdge: Boolean,
-    protectTopEdge: Boolean,
-    protectBottomEdge: Boolean,
 ) {
     var dragDistance by remember { mutableFloatStateOf(0f) }
 
@@ -328,12 +317,8 @@ private fun TeamZone(
             },
         contentAlignment = Alignment.Center,
     ) {
-        val density = LocalDensity.current
-        val layoutDirection = LocalLayoutDirection.current
         val scoreText = score.toString()
         val scoreWidthSize = maxWidth.value / (scoreText.length.coerceAtLeast(2) * 0.58f)
-        val scoreHeightSize = maxHeight.value * 0.60f
-        val scoreFontSize = minOf(scoreWidthSize, scoreHeightSize).coerceIn(46f, 320f).sp
         val nameWidthSize = maxWidth.value / (teamName.length.coerceAtLeast(6) * 0.60f)
         val nameFontSize = minOf(
             maxWidth.value * 0.11f,
@@ -347,43 +332,14 @@ private fun TeamZone(
         val crownSize = minOf(maxWidth.value * 0.07f, maxHeight.value * 0.08f)
             .coerceIn(18f, 34f)
             .dp
-        val borderBaseInset = 8.dp
-        val safeInsets = WindowInsets.safeDrawing
-        val borderLeftInset = maxOf(
-            borderBaseInset,
-            with(density) {
-                if (protectLeftEdge) {
-                    safeInsets.getLeft(this, layoutDirection).toDp()
-                } else {
-                    0.dp
-                }
-            },
-        )
-        val borderRightInset = maxOf(
-            borderBaseInset,
-            with(density) {
-                if (protectRightEdge) {
-                    safeInsets.getRight(this, layoutDirection).toDp()
-                } else {
-                    0.dp
-                }
-            },
-        )
-        val borderTopInset = maxOf(
-            borderBaseInset,
-            with(density) {
-                if (protectTopEdge) safeInsets.getTop(this).toDp() else 0.dp
-            },
-        )
-        val borderBottomInset = maxOf(
-            borderBaseInset,
-            with(density) {
-                if (protectBottomEdge) safeInsets.getBottom(this).toDp() else 0.dp
-            },
-        )
+        val scoreAreaHeight = maxHeight - headerHeight
+        val scoreHeightSize = scoreAreaHeight.value * 0.78f
+        val scoreFontSize = minOf(scoreWidthSize, scoreHeightSize).coerceIn(46f, 320f).sp
 
         Box(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(top = headerHeight),
             contentAlignment = Alignment.Center,
         ) {
             Text(
@@ -441,12 +397,7 @@ private fun TeamZone(
             Box(
                 modifier = Modifier
                     .fillMaxSize()
-                    .absolutePadding(
-                        left = borderLeftInset,
-                        top = borderTopInset,
-                        right = borderRightInset,
-                        bottom = borderBottomInset,
-                    )
+                    .padding(16.dp)
                     .border(6.dp, Color(0xFFFFD54F)),
             )
         }
