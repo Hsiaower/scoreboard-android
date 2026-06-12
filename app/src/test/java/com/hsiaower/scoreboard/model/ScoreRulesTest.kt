@@ -82,6 +82,24 @@ class ScoreRulesTest {
     }
 
     @Test
+    fun `hard cap is ignored when win by two is disabled`() {
+        val settings = GameSettings(
+            winningScore = 40,
+            winByTwo = false,
+            hardCapEnabled = true,
+            hardCapScore = 30,
+        )
+
+        assertEquals(
+            Scores(31, 29),
+            ScoreRules.adjust(Team.TEAM_1, 1, 30, 29, settings),
+        )
+        assertNull(
+            ScoreRules.validateManualScore(Team.TEAM_1, 31, 20, 19, settings),
+        )
+    }
+
+    @Test
     fun `manual score validates hard cap and winner increase`() {
         val cappedSettings = GameSettings(hardCapEnabled = true, hardCapScore = 30)
         assertEquals(

@@ -26,7 +26,7 @@ object ScoreRules {
 
         val currentScore = if (team == Team.TEAM_1) team1Score else team2Score
         var updatedScore = (currentScore + delta).coerceAtLeast(0)
-        if (delta > 0 && settings.hardCapEnabled) {
+        if (delta > 0 && settings.winByTwo && settings.hardCapEnabled) {
             updatedScore = updatedScore.coerceAtMost(settings.hardCapScore)
         }
 
@@ -44,7 +44,7 @@ object ScoreRules {
         settings: GameSettings,
     ): ScoreValidationError? {
         if (newScore < 0) return ScoreValidationError.NEGATIVE
-        if (settings.hardCapEnabled && newScore > settings.hardCapScore) {
+        if (settings.winByTwo && settings.hardCapEnabled && newScore > settings.hardCapScore) {
             return ScoreValidationError.ABOVE_HARD_CAP
         }
 

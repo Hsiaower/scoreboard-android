@@ -33,6 +33,18 @@ class WinnerRulesTest {
     }
 
     @Test
+    fun `hard cap is ignored when win by two is disabled`() {
+        val settings = GameSettings(
+            winningScore = 40,
+            winByTwo = false,
+            hardCapEnabled = true,
+            hardCapScore = 30,
+        )
+
+        assertNull(WinnerRules.determineWinner(29, 30, settings))
+    }
+
+    @Test
     fun `scores below target have no winner`() {
         assertNull(WinnerRules.determineWinner(24, 23, GameSettings()))
     }

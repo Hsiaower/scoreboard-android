@@ -6,7 +6,7 @@ object WinnerRules {
         team2Score: Int,
         settings: GameSettings,
     ): Team? {
-        if (settings.hardCapEnabled) {
+        if (settings.winByTwo && settings.hardCapEnabled) {
             if (team1Score >= settings.hardCapScore && team1Score > team2Score) return Team.TEAM_1
             if (team2Score >= settings.hardCapScore && team2Score > team1Score) return Team.TEAM_2
         }

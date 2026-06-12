@@ -12,8 +12,11 @@ A touch-first two-team Android scoreboard built with Kotlin and Jetpack Compose.
 - Non-winning teams remain editable after a winner is detected
 - Scores never go below zero or above an enabled hard cap
 - Configurable winning score, win-by-two, and hard cap rules
+- Hard cap controls are available only when win-by-two is enabled
 - Persistent settings through Android DataStore
 - Fullscreen immersive display with keep-screen-awake behavior
+- Minimal corner icons for reset and settings
+- Stable winner presentation with a border and crown indicator
 - Keyboard/gamepad single-press mapping for scoring and reset actions
 - Data model placeholders for double-press and long-press mappings
 - GitHub Actions debug APK build and artifact upload

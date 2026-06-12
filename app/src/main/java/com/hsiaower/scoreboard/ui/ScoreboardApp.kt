@@ -19,6 +19,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
@@ -30,6 +31,8 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
@@ -47,6 +50,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
@@ -55,6 +59,7 @@ import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.saveable.rememberSaveable
 import com.hsiaower.scoreboard.ScoreboardViewModel
+import com.hsiaower.scoreboard.R
 import com.hsiaower.scoreboard.model.AppScreen
 import com.hsiaower.scoreboard.model.GameSettings
 import com.hsiaower.scoreboard.model.RemoteAction
@@ -167,15 +172,22 @@ private fun ScoreboardScreen(
             }
         }
 
-        Row(
+        MinimalIconButton(
+            iconResource = R.drawable.ic_refresh,
+            contentDescription = "Reset scores",
+            onClick = onReset,
             modifier = Modifier
-                .align(Alignment.TopCenter)
-                .padding(top = 4.dp),
-            horizontalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            ControlButton(text = "Reset", onClick = onReset)
-            ControlButton(text = "Settings", onClick = onSettings)
-        }
+                .align(Alignment.TopStart)
+                .padding(4.dp),
+        )
+        MinimalIconButton(
+            iconResource = R.drawable.ic_settings,
+            contentDescription = "Open settings",
+            onClick = onSettings,
+            modifier = Modifier
+                .align(Alignment.TopEnd)
+                .padding(4.dp),
+        )
 
         AnimatedVisibility(
             visible = showOnboardingHint,
@@ -253,27 +265,41 @@ private fun TeamZone(
     ) {
         val scoreText = score.toString()
         val scoreWidthSize = maxWidth.value / (scoreText.length.coerceAtLeast(2) * 0.58f)
-        val scoreHeightSize = maxHeight.value * if (isWinner) 0.52f else 0.62f
+        val scoreHeightSize = maxHeight.value * 0.60f
         val scoreFontSize = minOf(scoreWidthSize, scoreHeightSize).coerceIn(46f, 320f).sp
         val nameFontSize = minOf(maxWidth.value * 0.11f, maxHeight.value * 0.12f)
             .coerceIn(20f, 54f)
             .sp
-        val winnerFontSize = minOf(maxWidth.value * 0.065f, maxHeight.value * 0.075f)
-            .coerceIn(16f, 34f)
-            .sp
+        val headerHeight = (nameFontSize.value * 1.7f).dp
+        val crownSize = (nameFontSize.value * 0.65f).coerceIn(16f, 32f).dp
 
         Column(
             horizontalAlignment = Alignment.CenterHorizontally,
             verticalArrangement = Arrangement.Center,
         ) {
-            Text(
-                text = teamName,
-                color = Color.White,
-                fontSize = nameFontSize,
-                lineHeight = nameFontSize,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-            )
+            Box(
+                modifier = Modifier.height(headerHeight).fillMaxWidth(),
+                contentAlignment = Alignment.BottomCenter,
+            ) {
+                if (isWinner) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_crown),
+                        contentDescription = "$teamName winner",
+                        tint = Color.Unspecified,
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .size(crownSize),
+                    )
+                }
+                Text(
+                    text = teamName,
+                    color = Color.White,
+                    fontSize = nameFontSize,
+                    lineHeight = nameFontSize,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                )
+            }
             Text(
                 text = scoreText,
                 color = Color.White,
@@ -285,15 +311,6 @@ private fun TeamZone(
                     detectTapGestures(onLongPress = { onEdit() })
                 },
             )
-            if (isWinner) {
-                Text(
-                    text = "WINNER",
-                    color = Color(0xFFFFE082),
-                    fontSize = winnerFontSize,
-                    lineHeight = winnerFontSize,
-                    fontWeight = FontWeight.Black,
-                )
-            }
         }
     }
 }
@@ -361,15 +378,24 @@ private fun EditScoreDialog(
 }
 
 @Composable
-private fun ControlButton(text: String, onClick: () -> Unit) {
-    Button(
+private fun MinimalIconButton(
+    iconResource: Int,
+    contentDescription: String,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    IconButton(
         onClick = onClick,
-        colors = ButtonDefaults.buttonColors(
-            containerColor = Color.Black.copy(alpha = 0.72f),
-            contentColor = Color.White,
-        ),
+        modifier = modifier
+            .size(44.dp)
+            .background(Color.Black.copy(alpha = 0.28f), RoundedCornerShape(12.dp)),
     ) {
-        Text(text, fontWeight = FontWeight.Bold)
+        Icon(
+            painter = painterResource(iconResource),
+            contentDescription = contentDescription,
+            tint = Color.White.copy(alpha = 0.78f),
+            modifier = Modifier.size(24.dp),
+        )
     }
 }
 
@@ -386,7 +412,8 @@ private fun SettingsScreen(
     var hardCapScore by remember(settings) { mutableStateOf(settings.hardCapScore.toString()) }
     val parsedWinningScore = winningScore.toIntOrNull()?.takeIf { it > 0 }
     val parsedHardCapScore = hardCapScore.toIntOrNull()?.takeIf { it > 0 }
-    val canSave = parsedWinningScore != null && parsedHardCapScore != null
+    val canSave = parsedWinningScore != null &&
+        (!winByTwo || !hardCapEnabled || parsedHardCapScore != null)
 
     SettingsPage(title = "Game Settings", onBack = onBack) {
         NumberField(
@@ -397,26 +424,31 @@ private fun SettingsScreen(
         CheckRow(
             label = "Win by 2",
             checked = winByTwo,
-            onCheckedChange = { winByTwo = it },
+            onCheckedChange = {
+                winByTwo = it
+                if (!it) hardCapEnabled = false
+            },
         )
-        CheckRow(
-            label = "Hard cap enabled",
-            checked = hardCapEnabled,
-            onCheckedChange = { hardCapEnabled = it },
-        )
-        NumberField(
-            label = "Hard cap score",
-            value = hardCapScore,
-            enabled = hardCapEnabled,
-            onValueChange = { hardCapScore = it.filter(Char::isDigit) },
-        )
+        if (winByTwo) {
+            CheckRow(
+                label = "Hard cap enabled",
+                checked = hardCapEnabled,
+                onCheckedChange = { hardCapEnabled = it },
+            )
+            NumberField(
+                label = "Hard cap score",
+                value = hardCapScore,
+                enabled = hardCapEnabled,
+                onValueChange = { hardCapScore = it.filter(Char::isDigit) },
+            )
+        }
         Button(
             onClick = {
                 onSave(
                     GameSettings(
                         winningScore = parsedWinningScore ?: 25,
                         winByTwo = winByTwo,
-                        hardCapEnabled = hardCapEnabled,
+                        hardCapEnabled = winByTwo && hardCapEnabled,
                         hardCapScore = parsedHardCapScore ?: 30,
                     ),
                 )

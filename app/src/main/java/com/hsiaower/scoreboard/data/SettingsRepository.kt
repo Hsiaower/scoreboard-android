@@ -18,10 +18,11 @@ private val Context.dataStore by preferencesDataStore(name = "scoreboard_setting
 
 class SettingsRepository(private val context: Context) {
     val gameSettings: Flow<GameSettings> = context.dataStore.data.map { preferences ->
+        val winByTwo = preferences[WIN_BY_TWO] ?: true
         GameSettings(
             winningScore = preferences[WINNING_SCORE] ?: 25,
-            winByTwo = preferences[WIN_BY_TWO] ?: true,
-            hardCapEnabled = preferences[HARD_CAP_ENABLED] ?: false,
+            winByTwo = winByTwo,
+            hardCapEnabled = winByTwo && (preferences[HARD_CAP_ENABLED] ?: false),
             hardCapScore = preferences[HARD_CAP_SCORE] ?: 30,
         )
     }
@@ -42,7 +43,7 @@ class SettingsRepository(private val context: Context) {
         context.dataStore.edit { preferences ->
             preferences[WINNING_SCORE] = settings.winningScore.coerceAtLeast(1)
             preferences[WIN_BY_TWO] = settings.winByTwo
-            preferences[HARD_CAP_ENABLED] = settings.hardCapEnabled
+            preferences[HARD_CAP_ENABLED] = settings.winByTwo && settings.hardCapEnabled
             preferences[HARD_CAP_SCORE] = settings.hardCapScore.coerceAtLeast(1)
         }
     }
