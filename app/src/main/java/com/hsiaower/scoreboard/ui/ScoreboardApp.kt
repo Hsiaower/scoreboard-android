@@ -5,7 +5,7 @@ import android.view.RoundedCorner
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
-import androidx.compose.foundation.Canvas
+import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -25,6 +25,7 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.shape.AbsoluteRoundedCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.verticalScroll
@@ -50,12 +51,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.geometry.CornerRadius
-import androidx.compose.ui.geometry.Rect
-import androidx.compose.ui.geometry.RoundRect
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.graphics.Path
-import androidx.compose.ui.graphics.PathFillType
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalConfiguration
@@ -417,66 +413,20 @@ private fun WinnerBorder(
     cornerRadii: ScreenCornerRadii,
     modifier: Modifier = Modifier,
 ) {
-    Canvas(modifier = modifier) {
-        val strokeWidth = 3.dp.toPx()
-        val cornerCompensation = 2.5.dp.toPx()
-        val outerRadii = cornerRadii.toPixelCornerRadii(density)
-        val innerRadii = outerRadii.insetBy(strokeWidth + cornerCompensation)
-        val borderPath = Path().apply {
-            fillType = PathFillType.EvenOdd
-            addRoundRect(
-                RoundRect(
-                    rect = Rect(0f, 0f, size.width, size.height),
-                    topLeft = outerRadii.topLeft,
-                    topRight = outerRadii.topRight,
-                    bottomRight = outerRadii.bottomRight,
-                    bottomLeft = outerRadii.bottomLeft,
-                ),
-            )
-            addRoundRect(
-                RoundRect(
-                    rect = Rect(
-                        strokeWidth,
-                        strokeWidth,
-                        size.width - strokeWidth,
-                        size.height - strokeWidth,
-                    ),
-                    topLeft = innerRadii.topLeft,
-                    topRight = innerRadii.topRight,
-                    bottomRight = innerRadii.bottomRight,
-                    bottomLeft = innerRadii.bottomLeft,
-                ),
-            )
-        }
-        drawPath(borderPath, Color(0xFFFFD54F))
-    }
-}
-
-private data class PixelCornerRadii(
-    val topLeft: CornerRadius,
-    val topRight: CornerRadius,
-    val bottomRight: CornerRadius,
-    val bottomLeft: CornerRadius,
-) {
-    fun insetBy(amount: Float) = PixelCornerRadii(
-        topLeft = topLeft.insetBy(amount),
-        topRight = topRight.insetBy(amount),
-        bottomRight = bottomRight.insetBy(amount),
-        bottomLeft = bottomLeft.insetBy(amount),
+    val borderShape = AbsoluteRoundedCornerShape(
+        topLeft = cornerRadii.topLeft.dp,
+        topRight = cornerRadii.topRight.dp,
+        bottomRight = cornerRadii.bottomRight.dp,
+        bottomLeft = cornerRadii.bottomLeft.dp,
+    )
+    Surface(
+        modifier = modifier,
+        shape = borderShape,
+        color = Color.Transparent,
+        border = BorderStroke(3.dp, Color(0xFFFFD54F)),
+        content = {},
     )
 }
-
-private fun ScreenCornerRadii.toPixelCornerRadii(density: Float) = PixelCornerRadii(
-    topLeft = CornerRadius(topLeft * density),
-    topRight = CornerRadius(topRight * density),
-    bottomRight = CornerRadius(bottomRight * density),
-    bottomLeft = CornerRadius(bottomLeft * density),
-)
-
-private fun CornerRadius.insetBy(amount: Float) = CornerRadius(
-    x = (x - amount).coerceAtLeast(0f),
-    y = (y - amount).coerceAtLeast(0f),
-)
 
 @Composable
 private fun rememberScreenCornerRadii(): ScreenCornerRadii {
