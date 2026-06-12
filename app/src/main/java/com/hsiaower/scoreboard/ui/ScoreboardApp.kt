@@ -1,10 +1,15 @@
 package com.hsiaower.scoreboard.ui
 
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.Row
@@ -14,13 +19,13 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
@@ -30,7 +35,9 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableStateOf
@@ -40,19 +47,21 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.compose.runtime.saveable.rememberSaveable
 import com.hsiaower.scoreboard.ScoreboardViewModel
 import com.hsiaower.scoreboard.model.AppScreen
 import com.hsiaower.scoreboard.model.GameSettings
 import com.hsiaower.scoreboard.model.RemoteAction
+import com.hsiaower.scoreboard.model.ScoreValidationError
 import com.hsiaower.scoreboard.model.ScoreboardState
 import com.hsiaower.scoreboard.model.Team
+import kotlinx.coroutines.delay
 import kotlin.math.abs
 
 private val Team1Blue = Color(0xFF1D4ED8)
@@ -62,6 +71,12 @@ private val AppBackground = Color(0xFF111827)
 @Composable
 fun ScoreboardApp(viewModel: ScoreboardViewModel) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    var showOnboardingHint by rememberSaveable { mutableStateOf(true) }
+
+    LaunchedEffect(Unit) {
+        delay(2_000)
+        showOnboardingHint = false
+    }
 
     MaterialTheme {
         Surface(modifier = Modifier.fillMaxSize(), color = AppBackground) {
@@ -69,8 +84,10 @@ fun ScoreboardApp(viewModel: ScoreboardViewModel) {
                 AppScreen.SCOREBOARD -> ScoreboardScreen(
                     state = state,
                     onAdjust = viewModel::adjustScore,
+                    onSetScore = viewModel::setScore,
                     onReset = viewModel::resetScores,
                     onSettings = { viewModel.navigate(AppScreen.SETTINGS) },
+                    showOnboardingHint = showOnboardingHint,
                 )
 
                 AppScreen.SETTINGS -> SettingsScreen(
@@ -96,13 +113,16 @@ fun ScoreboardApp(viewModel: ScoreboardViewModel) {
 private fun ScoreboardScreen(
     state: ScoreboardState,
     onAdjust: (Team, Int) -> Unit,
+    onSetScore: (Team, Int) -> ScoreValidationError?,
     onReset: () -> Unit,
     onSettings: () -> Unit,
+    showOnboardingHint: Boolean,
 ) {
-    val configuration = LocalConfiguration.current
-    val isLandscape = configuration.screenWidthDp > configuration.screenHeightDp
+    var editingTeam by remember { mutableStateOf<Team?>(null) }
 
-    Box(modifier = Modifier.fillMaxSize()) {
+    BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
+        val isLandscape = maxWidth > maxHeight
+
         if (isLandscape) {
             Row(modifier = Modifier.fillMaxSize()) {
                 TeamZone(
@@ -112,7 +132,7 @@ private fun ScoreboardScreen(
                     color = Team1Blue,
                     isWinner = state.winner == Team.TEAM_1,
                     onAdjust = { onAdjust(Team.TEAM_1, it) },
-                    landscape = true,
+                    onEdit = { editingTeam = Team.TEAM_1 },
                 )
                 TeamZone(
                     modifier = Modifier.weight(1f).fillMaxHeight(),
@@ -121,7 +141,7 @@ private fun ScoreboardScreen(
                     color = Team2Red,
                     isWinner = state.winner == Team.TEAM_2,
                     onAdjust = { onAdjust(Team.TEAM_2, it) },
-                    landscape = true,
+                    onEdit = { editingTeam = Team.TEAM_2 },
                 )
             }
         } else {
@@ -133,7 +153,7 @@ private fun ScoreboardScreen(
                     color = Team1Blue,
                     isWinner = state.winner == Team.TEAM_1,
                     onAdjust = { onAdjust(Team.TEAM_1, it) },
-                    landscape = false,
+                    onEdit = { editingTeam = Team.TEAM_1 },
                 )
                 TeamZone(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -142,7 +162,7 @@ private fun ScoreboardScreen(
                     color = Team2Red,
                     isWinner = state.winner == Team.TEAM_2,
                     onAdjust = { onAdjust(Team.TEAM_2, it) },
-                    landscape = false,
+                    onEdit = { editingTeam = Team.TEAM_2 },
                 )
             }
         }
@@ -150,12 +170,49 @@ private fun ScoreboardScreen(
         Row(
             modifier = Modifier
                 .align(Alignment.TopCenter)
-                .padding(top = 12.dp),
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
+                .padding(top = 4.dp),
+            horizontalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             ControlButton(text = "Reset", onClick = onReset)
             ControlButton(text = "Settings", onClick = onSettings)
         }
+
+        AnimatedVisibility(
+            visible = showOnboardingHint,
+            enter = fadeIn(),
+            exit = fadeOut(),
+            modifier = Modifier.align(Alignment.Center),
+        ) {
+            Text(
+                text = "Swipe up to add • Swipe down to subtract • Long press score to edit",
+                color = Color.White,
+                fontWeight = FontWeight.SemiBold,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .padding(horizontal = 12.dp)
+                    .background(
+                        color = Color.Black.copy(alpha = 0.72f),
+                        shape = RoundedCornerShape(12.dp),
+                    )
+                    .padding(horizontal = 18.dp, vertical = 12.dp),
+            )
+        }
+    }
+
+    editingTeam?.let { team ->
+        val currentScore = if (team == Team.TEAM_1) state.team1Score else state.team2Score
+        val teamName = if (team == Team.TEAM_1) "Team 1" else "Team 2"
+        EditScoreDialog(
+            teamName = teamName,
+            currentScore = currentScore,
+            hardCap = state.settings.hardCapScore.takeIf { state.settings.hardCapEnabled },
+            onDismiss = { editingTeam = null },
+            onSave = { newScore ->
+                onSetScore(team, newScore).also { error ->
+                    if (error == null) editingTeam = null
+                }
+            },
+        )
     }
 }
 
@@ -167,12 +224,12 @@ private fun TeamZone(
     color: Color,
     isWinner: Boolean,
     onAdjust: (Int) -> Unit,
-    landscape: Boolean,
+    onEdit: () -> Unit,
 ) {
     var dragDistance by remember { mutableFloatStateOf(0f) }
-    val winnerBorder = if (isWinner) Modifier.border(10.dp, Color(0xFFFFD54F)) else Modifier
+    val winnerBorder = if (isWinner) Modifier.border(8.dp, Color(0xFFFFD54F)) else Modifier
 
-    Box(
+    BoxWithConstraints(
         modifier = modifier
             .then(winnerBorder)
             .background(color)
@@ -194,28 +251,113 @@ private fun TeamZone(
             },
         contentAlignment = Alignment.Center,
     ) {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+        val scoreText = score.toString()
+        val scoreWidthSize = maxWidth.value / (scoreText.length.coerceAtLeast(2) * 0.58f)
+        val scoreHeightSize = maxHeight.value * if (isWinner) 0.52f else 0.62f
+        val scoreFontSize = minOf(scoreWidthSize, scoreHeightSize).coerceIn(46f, 320f).sp
+        val nameFontSize = minOf(maxWidth.value * 0.11f, maxHeight.value * 0.12f)
+            .coerceIn(20f, 54f)
+            .sp
+        val winnerFontSize = minOf(maxWidth.value * 0.065f, maxHeight.value * 0.075f)
+            .coerceIn(16f, 34f)
+            .sp
+
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center,
+        ) {
             Text(
                 text = teamName,
                 color = Color.White,
-                fontSize = if (landscape) 34.sp else 28.sp,
+                fontSize = nameFontSize,
+                lineHeight = nameFontSize,
                 fontWeight = FontWeight.Bold,
+                maxLines = 1,
             )
             Text(
-                text = score.toString(),
+                text = scoreText,
                 color = Color.White,
-                fontSize = if (landscape) 150.sp else 110.sp,
-                lineHeight = if (landscape) 160.sp else 120.sp,
+                fontSize = scoreFontSize,
+                lineHeight = scoreFontSize,
                 fontWeight = FontWeight.Black,
+                maxLines = 1,
+                modifier = Modifier.pointerInput(teamName, score) {
+                    detectTapGestures(onLongPress = { onEdit() })
+                },
             )
-            Text(
-                text = if (isWinner) "WINNER" else "Swipe up +1  /  down -1",
-                color = if (isWinner) Color(0xFFFFE082) else Color.White.copy(alpha = 0.82f),
-                fontSize = if (landscape) 22.sp else 16.sp,
-                fontWeight = if (isWinner) FontWeight.Black else FontWeight.Medium,
-            )
+            if (isWinner) {
+                Text(
+                    text = "WINNER",
+                    color = Color(0xFFFFE082),
+                    fontSize = winnerFontSize,
+                    lineHeight = winnerFontSize,
+                    fontWeight = FontWeight.Black,
+                )
+            }
         }
     }
+}
+
+@Composable
+private fun EditScoreDialog(
+    teamName: String,
+    currentScore: Int,
+    hardCap: Int?,
+    onDismiss: () -> Unit,
+    onSave: (Int) -> ScoreValidationError?,
+) {
+    var scoreText by remember(teamName, currentScore) { mutableStateOf(currentScore.toString()) }
+    var errorMessage by remember(teamName, currentScore) { mutableStateOf<String?>(null) }
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit $teamName score") },
+        text = {
+            Column {
+                Text("Current score: $currentScore")
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = scoreText,
+                    onValueChange = {
+                        scoreText = it.filter(Char::isDigit)
+                        errorMessage = null
+                    },
+                    label = { Text("New score") },
+                    singleLine = true,
+                    isError = errorMessage != null,
+                    supportingText = errorMessage?.let { message -> { Text(message) } },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = {
+                    val newScore = scoreText.toIntOrNull()
+                    if (newScore == null) {
+                        errorMessage = "Enter a non-negative whole number."
+                        return@TextButton
+                    }
+
+                    errorMessage = when (onSave(newScore)) {
+                        ScoreValidationError.NEGATIVE -> "Score cannot be negative."
+                        ScoreValidationError.ABOVE_HARD_CAP ->
+                            "Score cannot exceed the hard cap of $hardCap."
+                        ScoreValidationError.WINNER_CANNOT_INCREASE ->
+                            "The winning team's score can only be decreased."
+                        null -> null
+                    }
+                },
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        },
+    )
 }
 
 @Composable

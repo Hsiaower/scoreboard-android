@@ -6,7 +6,11 @@ A touch-first two-team Android scoreboard built with Kotlin and Jetpack Compose.
 
 - Large landscape-first scoreboard with portrait support
 - Swipe up to add a point and swipe down to remove a point
-- Scores never go below zero and remain editable after a winner is detected
+- Two-second gesture hint instead of permanent on-screen instructions
+- Long-press either score to enter a non-negative score manually
+- Winning teams cannot add points after victory, but can still correct downward
+- Non-winning teams remain editable after a winner is detected
+- Scores never go below zero or above an enabled hard cap
 - Configurable winning score, win-by-two, and hard cap rules
 - Persistent settings through Android DataStore
 - Fullscreen immersive display with keep-screen-awake behavior

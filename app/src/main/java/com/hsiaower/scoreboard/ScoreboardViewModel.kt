@@ -10,6 +10,8 @@ import com.hsiaower.scoreboard.model.GameSettings
 import com.hsiaower.scoreboard.model.InputType
 import com.hsiaower.scoreboard.model.RemoteAction
 import com.hsiaower.scoreboard.model.RemoteMapping
+import com.hsiaower.scoreboard.model.ScoreRules
+import com.hsiaower.scoreboard.model.ScoreValidationError
 import com.hsiaower.scoreboard.model.ScoreboardState
 import com.hsiaower.scoreboard.model.Team
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -38,11 +40,39 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
 
     fun adjustScore(team: Team, delta: Int) {
         _state.update { current ->
-            when (team) {
-                Team.TEAM_1 -> current.copy(team1Score = (current.team1Score + delta).coerceAtLeast(0))
-                Team.TEAM_2 -> current.copy(team2Score = (current.team2Score + delta).coerceAtLeast(0))
-            }
+            val scores = ScoreRules.adjust(
+                team = team,
+                delta = delta,
+                team1Score = current.team1Score,
+                team2Score = current.team2Score,
+                settings = current.settings,
+            )
+            current.copy(team1Score = scores.team1, team2Score = scores.team2)
         }
+    }
+
+    fun setScore(team: Team, newScore: Int): ScoreValidationError? {
+        val current = _state.value
+        val validationError = ScoreRules.validateManualScore(
+            team = team,
+            newScore = newScore,
+            team1Score = current.team1Score,
+            team2Score = current.team2Score,
+            settings = current.settings,
+        )
+        if (validationError != null) return validationError
+
+        _state.update { state ->
+            val scores = ScoreRules.set(
+                team = team,
+                newScore = newScore,
+                team1Score = state.team1Score,
+                team2Score = state.team2Score,
+                settings = state.settings,
+            )
+            state.copy(team1Score = scores.team1, team2Score = scores.team2)
+        }
+        return null
     }
 
     fun resetScores() {
