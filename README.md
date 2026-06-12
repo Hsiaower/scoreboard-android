@@ -1,0 +1,40 @@
+# Scoreboard
+
+A touch-first two-team Android scoreboard built with Kotlin and Jetpack Compose.
+
+## Features
+
+- Large landscape-first scoreboard with portrait support
+- Swipe up to add a point and swipe down to remove a point
+- Scores never go below zero and remain editable after a winner is detected
+- Configurable winning score, win-by-two, and hard cap rules
+- Persistent settings through Android DataStore
+- Fullscreen immersive display with keep-screen-awake behavior
+- Keyboard/gamepad single-press mapping for scoring and reset actions
+- Data model placeholders for double-press and long-press mappings
+- GitHub Actions debug APK build and artifact upload
+
+The application ID is `com.hsiaower.scoreboard` and should remain unchanged so future APKs update the installed app.
+
+## Build
+
+Use JDK 17 and Android SDK 35:
+
+```bash
+./gradlew testDebugUnitTest assembleDebug
+```
+
+The local APK is generated at `app/build/outputs/apk/debug/app-debug.apk`.
+
+## Remote input
+
+Open **Settings > Remote Mapping**, tap **Set input** for an action, then press a button on a paired Bluetooth keyboard, keypad, or gamepad. Single presses are implemented. Double and long press are represented in the input model for future implementation.
+
+## Planned features
+
+- Switch sides
+- Match/set history with timestamps
+- Rename teams
+- Change team colours
+- Share live scores
+- Undo last action
