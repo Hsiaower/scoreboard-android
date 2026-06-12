@@ -304,13 +304,9 @@ private fun TeamZone(
                 .coerceIn(16f, 54f)
                 .sp
             val headerHeight = (maxHeight.value * 0.25f).coerceIn(64f, 132f).dp
-            val crownSize = minOf(maxWidth.value * 0.10f, maxHeight.value * 0.12f)
-                .coerceIn(28f, 46f)
+            val crownSize = minOf(maxWidth.value * 0.18f, maxHeight.value * 0.22f)
+                .coerceIn(52f, 84f)
                 .dp
-            val crownAreaHeight = maxOf(
-                (maxHeight.value * 0.13f).coerceIn(36f, 58f).dp,
-                crownSize + 12.dp,
-            )
             val scoreAreaHeight = maxHeight - headerHeight
             val scoreHeightSize = scoreAreaHeight.value * 0.78f
             val scoreFontSize = minOf(scoreWidthSize, scoreHeightSize).coerceIn(46f, 320f).sp
@@ -334,41 +330,35 @@ private fun TeamZone(
                 )
             }
 
-            Column(
+            Box(
                 modifier = Modifier
                     .align(Alignment.TopCenter)
                     .fillMaxWidth()
                     .height(headerHeight)
                     .padding(horizontal = 52.dp, vertical = 2.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.Bottom,
             ) {
-                Box(
-                    modifier = Modifier.fillMaxWidth().height(crownAreaHeight),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    if (isWinner) {
-                        Icon(
-                            painter = painterResource(R.drawable.ic_crown),
-                            contentDescription = "$teamName winner",
-                            tint = Color.Unspecified,
-                            modifier = Modifier
-                                .size(crownSize + 12.dp)
-                                .drawBehind {
-                                    drawCircle(
-                                        brush = Brush.radialGradient(
-                                            colors = listOf(
-                                                Color(0xFFFFD54F).copy(alpha = 0.48f),
-                                                Color(0xFFFFD54F).copy(alpha = 0.16f),
-                                                Color.Transparent,
-                                            ),
+                if (isWinner) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_crown),
+                        contentDescription = "$teamName winner",
+                        tint = Color.Unspecified,
+                        modifier = Modifier
+                            .align(Alignment.TopCenter)
+                            .size(crownSize + 16.dp)
+                            .drawBehind {
+                                drawCircle(
+                                    brush = Brush.radialGradient(
+                                        colors = listOf(
+                                            Color(0xFFFFD54F).copy(alpha = 0.52f),
+                                            Color(0xFFFFD54F).copy(alpha = 0.18f),
+                                            Color.Transparent,
                                         ),
-                                        radius = size.minDimension / 2f,
-                                    )
-                                }
-                                .padding(6.dp),
-                        )
-                    }
+                                    ),
+                                    radius = size.minDimension / 2f,
+                                )
+                            }
+                            .padding(8.dp),
+                    )
                 }
                 Text(
                     text = teamName,
@@ -380,6 +370,7 @@ private fun TeamZone(
                     overflow = TextOverflow.Ellipsis,
                     textAlign = TextAlign.Center,
                     modifier = Modifier
+                        .align(Alignment.BottomCenter)
                         .fillMaxWidth()
                         .pointerInput(teamName) {
                             detectTapGestures(onLongPress = { onEditName() })
