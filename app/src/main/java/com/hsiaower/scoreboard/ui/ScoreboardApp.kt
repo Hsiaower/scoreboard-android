@@ -1,8 +1,16 @@
 package com.hsiaower.scoreboard.ui
 
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.LinearEasing
+import androidx.compose.animation.core.RepeatMode
+import androidx.compose.animation.core.animateFloat
+import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.core.rememberInfiniteTransition
+import androidx.compose.animation.core.tween
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -17,6 +25,7 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -47,8 +56,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.drawBehind
-import androidx.compose.ui.graphics.Brush
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
@@ -58,6 +66,7 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import androidx.compose.ui.zIndex
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.compose.runtime.saveable.rememberSaveable
 import com.hsiaower.scoreboard.ScoreboardViewModel
@@ -70,6 +79,8 @@ import com.hsiaower.scoreboard.model.ScoreboardState
 import com.hsiaower.scoreboard.model.Team
 import kotlinx.coroutines.delay
 import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.sin
 
 private val Team1Blue = Color(0xFF1D4ED8)
 private val Team2Red = Color(0xFFB91C1C)
@@ -338,26 +349,12 @@ private fun TeamZone(
                     .padding(horizontal = 52.dp, vertical = 2.dp),
             ) {
                 if (isWinner) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_crown),
-                        contentDescription = "$teamName winner",
-                        tint = Color.Unspecified,
+                    WinnerCrown(
+                        teamName = teamName,
+                        crownSize = crownSize,
                         modifier = Modifier
                             .align(Alignment.TopCenter)
-                            .size(crownSize + 16.dp)
-                            .drawBehind {
-                                drawCircle(
-                                    brush = Brush.radialGradient(
-                                        colors = listOf(
-                                            Color(0xFFFFD54F).copy(alpha = 0.52f),
-                                            Color(0xFFFFD54F).copy(alpha = 0.18f),
-                                            Color.Transparent,
-                                        ),
-                                    ),
-                                    radius = size.minDimension / 2f,
-                                )
-                            }
-                            .padding(8.dp),
+                            .zIndex(2f),
                     )
                 }
                 Text(
@@ -371,12 +368,100 @@ private fun TeamZone(
                     textAlign = TextAlign.Center,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
+                        .offset(y = 8.dp)
+                        .zIndex(1f)
                         .fillMaxWidth()
                         .pointerInput(teamName) {
                             detectTapGestures(onLongPress = { onEditName() })
                         },
                 )
             }
+    }
+}
+
+@Composable
+private fun WinnerCrown(
+    teamName: String,
+    crownSize: androidx.compose.ui.unit.Dp,
+    modifier: Modifier = Modifier,
+) {
+    val transition = rememberInfiniteTransition(label = "winner crown")
+    val rayRotation by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 360f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(7_000, easing = LinearEasing),
+        ),
+        label = "ray rotation",
+    )
+    val rayPulse by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(1_400, easing = FastOutSlowInEasing),
+            repeatMode = RepeatMode.Reverse,
+        ),
+        label = "ray pulse",
+    )
+    val sparkleProgress by transition.animateFloat(
+        initialValue = 0f,
+        targetValue = 1f,
+        animationSpec = infiniteRepeatable(
+            animation = tween(2_200, easing = LinearEasing),
+        ),
+        label = "sparkle orbit",
+    )
+    val effectSize = crownSize + 44.dp
+
+    Box(
+        modifier = modifier.size(effectSize),
+        contentAlignment = Alignment.Center,
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val center = Offset(size.width / 2f, size.height / 2f)
+            val innerRadius = crownSize.toPx() * 0.45f
+            val outerRadius = size.minDimension * (0.40f + rayPulse * 0.04f)
+            repeat(12) { index ->
+                val angle = Math.toRadians((rayRotation + index * 30f).toDouble())
+                val start = Offset(
+                    x = center.x + cos(angle).toFloat() * innerRadius,
+                    y = center.y + sin(angle).toFloat() * innerRadius,
+                )
+                val end = Offset(
+                    x = center.x + cos(angle).toFloat() * outerRadius,
+                    y = center.y + sin(angle).toFloat() * outerRadius,
+                )
+                drawLine(
+                    color = Color(0xFFFFE082).copy(alpha = 0.30f + rayPulse * 0.25f),
+                    start = start,
+                    end = end,
+                    strokeWidth = (if (index % 2 == 0) 2.5.dp else 1.5.dp).toPx(),
+                )
+            }
+
+            repeat(8) { index ->
+                val phase = (sparkleProgress + index / 8f) % 1f
+                val angle = Math.toRadians((index * 45f + rayRotation * 0.35f).toDouble())
+                val orbitRadius = innerRadius + (outerRadius - innerRadius) * phase
+                val alpha = sin(Math.PI * phase).toFloat().coerceIn(0f, 1f)
+                val sparkleCenter = Offset(
+                    x = center.x + cos(angle).toFloat() * orbitRadius,
+                    y = center.y + sin(angle).toFloat() * orbitRadius,
+                )
+                drawCircle(
+                    color = Color.White.copy(alpha = alpha * 0.9f),
+                    radius = (1.5.dp.toPx() + 2.dp.toPx() * alpha),
+                    center = sparkleCenter,
+                )
+            }
+        }
+
+        Icon(
+            painter = painterResource(R.drawable.ic_crown),
+            contentDescription = "$teamName winner",
+            tint = Color.Unspecified,
+            modifier = Modifier.size(crownSize),
+        )
     }
 }
 
