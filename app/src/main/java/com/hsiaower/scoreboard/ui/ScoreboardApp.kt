@@ -1,7 +1,5 @@
 package com.hsiaower.scoreboard.ui
 
-import android.os.Build
-import android.view.RoundedCorner
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -25,7 +23,6 @@ import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.shape.AbsoluteRoundedCornerShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.verticalScroll
@@ -33,6 +30,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -53,9 +51,6 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
-import androidx.compose.ui.platform.LocalDensity
-import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.platform.LocalView
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -79,13 +74,6 @@ import kotlin.math.abs
 private val Team1Blue = Color(0xFF1D4ED8)
 private val Team2Red = Color(0xFFB91C1C)
 private val AppBackground = Color(0xFF111827)
-
-private data class ScreenCornerRadii(
-    val topLeft: Float = 0f,
-    val topRight: Float = 0f,
-    val bottomRight: Float = 0f,
-    val bottomLeft: Float = 0f,
-)
 
 @Composable
 fun ScoreboardApp(viewModel: ScoreboardViewModel) {
@@ -141,13 +129,15 @@ private fun ScoreboardScreen(
 ) {
     var editingScoreTeam by remember { mutableStateOf<Team?>(null) }
     var editingNameTeam by remember { mutableStateOf<Team?>(null) }
-    val cornerRadii = rememberScreenCornerRadii()
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val isLandscape = maxWidth > maxHeight
 
         if (isLandscape) {
-            Row(modifier = Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier.fillMaxSize().padding(12.dp),
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
                 TeamZone(
                     modifier = Modifier.weight(1f).fillMaxHeight(),
                     teamName = state.settings.team1Name,
@@ -157,10 +147,6 @@ private fun ScoreboardScreen(
                     onAdjust = { onAdjust(Team.TEAM_1, it) },
                     onEditScore = { editingScoreTeam = Team.TEAM_1 },
                     onEditName = { editingNameTeam = Team.TEAM_1 },
-                    borderCornerRadii = ScreenCornerRadii(
-                        topLeft = cornerRadii.topLeft,
-                        bottomLeft = cornerRadii.bottomLeft,
-                    ),
                 )
                 TeamZone(
                     modifier = Modifier.weight(1f).fillMaxHeight(),
@@ -171,14 +157,13 @@ private fun ScoreboardScreen(
                     onAdjust = { onAdjust(Team.TEAM_2, it) },
                     onEditScore = { editingScoreTeam = Team.TEAM_2 },
                     onEditName = { editingNameTeam = Team.TEAM_2 },
-                    borderCornerRadii = ScreenCornerRadii(
-                        topRight = cornerRadii.topRight,
-                        bottomRight = cornerRadii.bottomRight,
-                    ),
                 )
             }
         } else {
-            Column(modifier = Modifier.fillMaxSize()) {
+            Column(
+                modifier = Modifier.fillMaxSize().padding(12.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp),
+            ) {
                 TeamZone(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
                     teamName = state.settings.team1Name,
@@ -188,10 +173,6 @@ private fun ScoreboardScreen(
                     onAdjust = { onAdjust(Team.TEAM_1, it) },
                     onEditScore = { editingScoreTeam = Team.TEAM_1 },
                     onEditName = { editingNameTeam = Team.TEAM_1 },
-                    borderCornerRadii = ScreenCornerRadii(
-                        topLeft = cornerRadii.topLeft,
-                        topRight = cornerRadii.topRight,
-                    ),
                 )
                 TeamZone(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -202,10 +183,6 @@ private fun ScoreboardScreen(
                     onAdjust = { onAdjust(Team.TEAM_2, it) },
                     onEditScore = { editingScoreTeam = Team.TEAM_2 },
                     onEditName = { editingNameTeam = Team.TEAM_2 },
-                    borderCornerRadii = ScreenCornerRadii(
-                        bottomLeft = cornerRadii.bottomLeft,
-                        bottomRight = cornerRadii.bottomRight,
-                    ),
                 )
             }
         }
@@ -298,172 +275,114 @@ private fun TeamZone(
     onAdjust: (Int) -> Unit,
     onEditScore: () -> Unit,
     onEditName: () -> Unit,
-    borderCornerRadii: ScreenCornerRadii,
 ) {
     var dragDistance by remember { mutableFloatStateOf(0f) }
+    val cardShape = RoundedCornerShape(16.dp)
 
-    BoxWithConstraints(
-        modifier = modifier
-            .background(color)
-            .pointerInput(Unit) {
-                detectVerticalDragGestures(
-                    onDragStart = { dragDistance = 0f },
-                    onVerticalDrag = { change, dragAmount ->
-                        change.consume()
-                        dragDistance += dragAmount
-                    },
-                    onDragEnd = {
-                        if (abs(dragDistance) >= 48f) {
-                            onAdjust(if (dragDistance < 0f) 1 else -1)
-                        }
-                        dragDistance = 0f
-                    },
-                    onDragCancel = { dragDistance = 0f },
-                )
-            },
-        contentAlignment = Alignment.Center,
+    Card(
+        modifier = modifier,
+        shape = cardShape,
+        colors = CardDefaults.cardColors(containerColor = color),
+        border = if (isWinner) BorderStroke(4.dp, Color(0xFFFFD54F)) else null,
     ) {
-        val scoreText = score.toString()
-        val scoreWidthSize = maxWidth.value / (scoreText.length.coerceAtLeast(2) * 0.58f)
-        val nameWidthSize = maxWidth.value / (teamName.length.coerceAtLeast(6) * 0.60f)
-        val nameFontSize = minOf(
-            maxWidth.value * 0.11f,
-            maxHeight.value * 0.12f,
-            nameWidthSize,
-        )
-            .coerceIn(16f, 54f)
-            .sp
-        val headerHeight = (maxHeight.value * 0.25f).coerceIn(64f, 132f).dp
-        val crownAreaHeight = (maxHeight.value * 0.09f).coerceIn(22f, 42f).dp
-        val crownSize = minOf(maxWidth.value * 0.07f, maxHeight.value * 0.08f)
-            .coerceIn(18f, 34f)
-            .dp
-        val scoreAreaHeight = maxHeight - headerHeight
-        val scoreHeightSize = scoreAreaHeight.value * 0.78f
-        val scoreFontSize = minOf(scoreWidthSize, scoreHeightSize).coerceIn(46f, 320f).sp
-
-        Box(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .padding(top = headerHeight),
+                .pointerInput(Unit) {
+                    detectVerticalDragGestures(
+                        onDragStart = { dragDistance = 0f },
+                        onVerticalDrag = { change, dragAmount ->
+                            change.consume()
+                            dragDistance += dragAmount
+                        },
+                        onDragEnd = {
+                            if (abs(dragDistance) >= 48f) {
+                                onAdjust(if (dragDistance < 0f) 1 else -1)
+                            }
+                            dragDistance = 0f
+                        },
+                        onDragCancel = { dragDistance = 0f },
+                    )
+                },
             contentAlignment = Alignment.Center,
         ) {
-            Text(
-                text = scoreText,
-                color = Color.White,
-                fontSize = scoreFontSize,
-                lineHeight = scoreFontSize,
-                fontWeight = FontWeight.Black,
-                maxLines = 1,
-                modifier = Modifier.pointerInput(teamName, score) {
-                    detectTapGestures(onLongPress = { onEditScore() })
-                },
+            val scoreText = score.toString()
+            val scoreWidthSize = maxWidth.value / (scoreText.length.coerceAtLeast(2) * 0.58f)
+            val nameWidthSize = maxWidth.value / (teamName.length.coerceAtLeast(6) * 0.60f)
+            val nameFontSize = minOf(
+                maxWidth.value * 0.11f,
+                maxHeight.value * 0.12f,
+                nameWidthSize,
             )
-        }
+                .coerceIn(16f, 54f)
+                .sp
+            val headerHeight = (maxHeight.value * 0.25f).coerceIn(64f, 132f).dp
+            val crownAreaHeight = (maxHeight.value * 0.09f).coerceIn(22f, 42f).dp
+            val crownSize = minOf(maxWidth.value * 0.07f, maxHeight.value * 0.08f)
+                .coerceIn(18f, 34f)
+                .dp
+            val scoreAreaHeight = maxHeight - headerHeight
+            val scoreHeightSize = scoreAreaHeight.value * 0.78f
+            val scoreFontSize = minOf(scoreWidthSize, scoreHeightSize).coerceIn(46f, 320f).sp
 
-        Column(
-            modifier = Modifier
-                .align(Alignment.TopCenter)
-                .fillMaxWidth()
-                .height(headerHeight)
-                .padding(horizontal = 52.dp, vertical = 4.dp),
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
             Box(
-                modifier = Modifier.fillMaxWidth().height(crownAreaHeight),
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(top = headerHeight),
                 contentAlignment = Alignment.Center,
             ) {
-                if (isWinner) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_crown),
-                        contentDescription = "$teamName winner",
-                        tint = Color.Unspecified,
-                        modifier = Modifier.size(crownSize),
-                    )
-                }
-            }
-            Text(
-                text = teamName,
-                color = Color.White,
-                fontSize = nameFontSize,
-                lineHeight = nameFontSize,
-                fontWeight = FontWeight.Bold,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                textAlign = TextAlign.Center,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .pointerInput(teamName) {
-                        detectTapGestures(onLongPress = { onEditName() })
+                Text(
+                    text = scoreText,
+                    color = Color.White,
+                    fontSize = scoreFontSize,
+                    lineHeight = scoreFontSize,
+                    fontWeight = FontWeight.Black,
+                    maxLines = 1,
+                    modifier = Modifier.pointerInput(teamName, score) {
+                        detectTapGestures(onLongPress = { onEditScore() })
                     },
-            )
-        }
+                )
+            }
 
-        if (isWinner) {
-            WinnerBorder(
-                cornerRadii = borderCornerRadii,
-                modifier = Modifier.fillMaxSize(),
-            )
-        }
-    }
-}
-
-@Composable
-private fun WinnerBorder(
-    cornerRadii: ScreenCornerRadii,
-    modifier: Modifier = Modifier,
-) {
-    val borderShape = AbsoluteRoundedCornerShape(
-        topLeft = cornerRadii.topLeft.dp,
-        topRight = cornerRadii.topRight.dp,
-        bottomRight = cornerRadii.bottomRight.dp,
-        bottomLeft = cornerRadii.bottomLeft.dp,
-    )
-    Surface(
-        modifier = modifier,
-        shape = borderShape,
-        color = Color.Transparent,
-        border = BorderStroke(3.dp, Color(0xFFFFD54F)),
-        content = {},
-    )
-}
-
-@Composable
-private fun rememberScreenCornerRadii(): ScreenCornerRadii {
-    val view = LocalView.current
-    val density = LocalDensity.current
-    val configuration = LocalConfiguration.current
-    var radii by remember {
-        mutableStateOf(
-            ScreenCornerRadii(
-                topLeft = 12f,
-                topRight = 12f,
-                bottomRight = 12f,
-                bottomLeft = 12f,
-            ),
-        )
-    }
-
-    LaunchedEffect(view, configuration.orientation) {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return@LaunchedEffect
-        view.post {
-            val insets = view.rootWindowInsets ?: return@post
-            with(density) {
-                radii = ScreenCornerRadii(
-                    topLeft = insets.getRoundedCorner(RoundedCorner.POSITION_TOP_LEFT)
-                        ?.radius?.toDp()?.value ?: 12f,
-                    topRight = insets.getRoundedCorner(RoundedCorner.POSITION_TOP_RIGHT)
-                        ?.radius?.toDp()?.value ?: 12f,
-                    bottomRight = insets.getRoundedCorner(RoundedCorner.POSITION_BOTTOM_RIGHT)
-                        ?.radius?.toDp()?.value ?: 12f,
-                    bottomLeft = insets.getRoundedCorner(RoundedCorner.POSITION_BOTTOM_LEFT)
-                        ?.radius?.toDp()?.value ?: 12f,
+            Column(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .fillMaxWidth()
+                    .height(headerHeight)
+                    .padding(horizontal = 52.dp, vertical = 4.dp),
+                horizontalAlignment = Alignment.CenterHorizontally,
+            ) {
+                Box(
+                    modifier = Modifier.fillMaxWidth().height(crownAreaHeight),
+                    contentAlignment = Alignment.Center,
+                ) {
+                    if (isWinner) {
+                        Icon(
+                            painter = painterResource(R.drawable.ic_crown),
+                            contentDescription = "$teamName winner",
+                            tint = Color.Unspecified,
+                            modifier = Modifier.size(crownSize),
+                        )
+                    }
+                }
+                Text(
+                    text = teamName,
+                    color = Color.White,
+                    fontSize = nameFontSize,
+                    lineHeight = nameFontSize,
+                    fontWeight = FontWeight.Bold,
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .pointerInput(teamName) {
+                            detectTapGestures(onLongPress = { onEditName() })
+                        },
                 )
             }
         }
     }
-
-    return radii
 }
 
 @Composable
