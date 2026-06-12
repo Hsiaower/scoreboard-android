@@ -135,8 +135,8 @@ private fun ScoreboardScreen(
 
         if (isLandscape) {
             Row(
-                modifier = Modifier.fillMaxSize().padding(12.dp),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxSize().padding(16.dp),
+                horizontalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 TeamZone(
                     modifier = Modifier.weight(1f).fillMaxHeight(),
@@ -161,8 +161,8 @@ private fun ScoreboardScreen(
             }
         } else {
             Column(
-                modifier = Modifier.fillMaxSize().padding(12.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxSize().padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
                 TeamZone(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
