@@ -95,6 +95,7 @@ fun ScoreboardApp(viewModel: ScoreboardViewModel) {
                     state = state,
                     onAdjust = viewModel::adjustScore,
                     onSetScore = viewModel::setScore,
+                    onSetTeamName = viewModel::setTeamName,
                     onReset = viewModel::resetScores,
                     onSettings = { viewModel.navigate(AppScreen.SETTINGS) },
                     showOnboardingHint = showOnboardingHint,
@@ -124,11 +125,13 @@ private fun ScoreboardScreen(
     state: ScoreboardState,
     onAdjust: (Team, Int) -> Unit,
     onSetScore: (Team, Int) -> ScoreValidationError?,
+    onSetTeamName: (Team, String) -> Unit,
     onReset: () -> Unit,
     onSettings: () -> Unit,
     showOnboardingHint: Boolean,
 ) {
-    var editingTeam by remember { mutableStateOf<Team?>(null) }
+    var editingScoreTeam by remember { mutableStateOf<Team?>(null) }
+    var editingNameTeam by remember { mutableStateOf<Team?>(null) }
 
     BoxWithConstraints(modifier = Modifier.fillMaxSize()) {
         val isLandscape = maxWidth > maxHeight
@@ -142,7 +145,8 @@ private fun ScoreboardScreen(
                     color = Team1Blue,
                     isWinner = state.winner == Team.TEAM_1,
                     onAdjust = { onAdjust(Team.TEAM_1, it) },
-                    onEdit = { editingTeam = Team.TEAM_1 },
+                    onEditScore = { editingScoreTeam = Team.TEAM_1 },
+                    onEditName = { editingNameTeam = Team.TEAM_1 },
                 )
                 TeamZone(
                     modifier = Modifier.weight(1f).fillMaxHeight(),
@@ -151,7 +155,8 @@ private fun ScoreboardScreen(
                     color = Team2Red,
                     isWinner = state.winner == Team.TEAM_2,
                     onAdjust = { onAdjust(Team.TEAM_2, it) },
-                    onEdit = { editingTeam = Team.TEAM_2 },
+                    onEditScore = { editingScoreTeam = Team.TEAM_2 },
+                    onEditName = { editingNameTeam = Team.TEAM_2 },
                 )
             }
         } else {
@@ -163,7 +168,8 @@ private fun ScoreboardScreen(
                     color = Team1Blue,
                     isWinner = state.winner == Team.TEAM_1,
                     onAdjust = { onAdjust(Team.TEAM_1, it) },
-                    onEdit = { editingTeam = Team.TEAM_1 },
+                    onEditScore = { editingScoreTeam = Team.TEAM_1 },
+                    onEditName = { editingNameTeam = Team.TEAM_1 },
                 )
                 TeamZone(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -172,7 +178,8 @@ private fun ScoreboardScreen(
                     color = Team2Red,
                     isWinner = state.winner == Team.TEAM_2,
                     onAdjust = { onAdjust(Team.TEAM_2, it) },
-                    onEdit = { editingTeam = Team.TEAM_2 },
+                    onEditScore = { editingScoreTeam = Team.TEAM_2 },
+                    onEditName = { editingNameTeam = Team.TEAM_2 },
                 )
             }
         }
@@ -209,7 +216,7 @@ private fun ScoreboardScreen(
             modifier = Modifier.align(Alignment.Center),
         ) {
             Text(
-                text = "Swipe up to add • Swipe down to subtract • Long press score to edit",
+                text = "Swipe up to add • Swipe down to subtract • Long press score or name to edit",
                 color = Color.White,
                 fontWeight = FontWeight.SemiBold,
                 textAlign = TextAlign.Center,
@@ -224,7 +231,7 @@ private fun ScoreboardScreen(
         }
     }
 
-    editingTeam?.let { team ->
+    editingScoreTeam?.let { team ->
         val currentScore = if (team == Team.TEAM_1) state.team1Score else state.team2Score
         val teamName = if (team == Team.TEAM_1) {
             state.settings.team1Name
@@ -235,11 +242,27 @@ private fun ScoreboardScreen(
             teamName = teamName,
             currentScore = currentScore,
             hardCap = state.settings.hardCapScore.takeIf { state.settings.hardCapEnabled },
-            onDismiss = { editingTeam = null },
+            onDismiss = { editingScoreTeam = null },
             onSave = { newScore ->
                 onSetScore(team, newScore).also { error ->
-                    if (error == null) editingTeam = null
+                    if (error == null) editingScoreTeam = null
                 }
+            },
+        )
+    }
+
+    editingNameTeam?.let { team ->
+        val currentName = if (team == Team.TEAM_1) {
+            state.settings.team1Name
+        } else {
+            state.settings.team2Name
+        }
+        EditTeamNameDialog(
+            currentName = currentName,
+            onDismiss = { editingNameTeam = null },
+            onSave = { newName ->
+                onSetTeamName(team, newName)
+                editingNameTeam = null
             },
         )
     }
@@ -253,7 +276,8 @@ private fun TeamZone(
     color: Color,
     isWinner: Boolean,
     onAdjust: (Int) -> Unit,
-    onEdit: () -> Unit,
+    onEditScore: () -> Unit,
+    onEditName: () -> Unit,
 ) {
     var dragDistance by remember { mutableFloatStateOf(0f) }
     val winnerBorder = if (isWinner) Modifier.border(8.dp, Color(0xFFFFD54F)) else Modifier
@@ -321,7 +345,11 @@ private fun TeamZone(
                     fontWeight = FontWeight.Bold,
                     maxLines = 1,
                     overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier.padding(horizontal = 8.dp),
+                    modifier = Modifier
+                        .padding(horizontal = 8.dp)
+                        .pointerInput(teamName) {
+                            detectTapGestures(onLongPress = { onEditName() })
+                        },
                 )
             }
             Text(
@@ -332,11 +360,53 @@ private fun TeamZone(
                 fontWeight = FontWeight.Black,
                 maxLines = 1,
                 modifier = Modifier.pointerInput(teamName, score) {
-                    detectTapGestures(onLongPress = { onEdit() })
+                    detectTapGestures(onLongPress = { onEditScore() })
                 },
             )
         }
     }
+}
+
+@Composable
+private fun EditTeamNameDialog(
+    currentName: String,
+    onDismiss: () -> Unit,
+    onSave: (String) -> Unit,
+) {
+    var nameText by remember(currentName) { mutableStateOf(currentName) }
+    val normalizedName = nameText.trim()
+
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        title = { Text("Edit team name") },
+        text = {
+            Column {
+                Text("Current name: $currentName")
+                Spacer(Modifier.height(12.dp))
+                OutlinedTextField(
+                    value = nameText,
+                    onValueChange = { nameText = it.take(30) },
+                    label = { Text("New team name") },
+                    supportingText = { Text("${nameText.length}/30") },
+                    singleLine = true,
+                    isError = normalizedName.isEmpty(),
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = { onSave(normalizedName) },
+                enabled = normalizedName.isNotEmpty(),
+            ) {
+                Text("Save")
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss) {
+                Text("Cancel")
+            }
+        },
+    )
 }
 
 @Composable
@@ -432,32 +502,12 @@ private fun SettingsScreen(
     var winByTwo by remember(settings) { mutableStateOf(settings.winByTwo) }
     var hardCapEnabled by remember(settings) { mutableStateOf(settings.hardCapEnabled) }
     var hardCapScore by remember(settings) { mutableStateOf(settings.hardCapScore.toString()) }
-    var team1Name by remember(settings) { mutableStateOf(settings.team1Name) }
-    var team2Name by remember(settings) { mutableStateOf(settings.team2Name) }
     val parsedWinningScore = winningScore.toIntOrNull()?.takeIf { it > 0 }
     val parsedHardCapScore = hardCapScore.toIntOrNull()?.takeIf { it > 0 }
     val canSave = parsedWinningScore != null &&
-        (!winByTwo || !hardCapEnabled || parsedHardCapScore != null) &&
-        team1Name.isNotBlank() &&
-        team2Name.isNotBlank()
+        (!winByTwo || !hardCapEnabled || parsedHardCapScore != null)
 
     SettingsPage(title = "Game Settings", onBack = onBack) {
-        OutlinedTextField(
-            value = team1Name,
-            onValueChange = { team1Name = it.take(30) },
-            label = { Text("Team 1 name") },
-            supportingText = { Text("${team1Name.length}/30") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
-        OutlinedTextField(
-            value = team2Name,
-            onValueChange = { team2Name = it.take(30) },
-            label = { Text("Team 2 name") },
-            supportingText = { Text("${team2Name.length}/30") },
-            singleLine = true,
-            modifier = Modifier.fillMaxWidth(),
-        )
         NumberField(
             label = "Winning score",
             value = winningScore,
@@ -487,13 +537,11 @@ private fun SettingsScreen(
         Button(
             onClick = {
                 onSave(
-                    GameSettings(
+                    settings.copy(
                         winningScore = parsedWinningScore ?: 25,
                         winByTwo = winByTwo,
                         hardCapEnabled = winByTwo && hardCapEnabled,
                         hardCapScore = parsedHardCapScore ?: 30,
-                        team1Name = team1Name.trim(),
-                        team2Name = team2Name.trim(),
                     ),
                 )
             },

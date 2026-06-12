@@ -90,6 +90,18 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    fun setTeamName(team: Team, name: String) {
+        val normalizedName = name.trim().take(30)
+        if (normalizedName.isBlank()) return
+
+        val updatedSettings = when (team) {
+            Team.TEAM_1 -> _state.value.settings.copy(team1Name = normalizedName)
+            Team.TEAM_2 -> _state.value.settings.copy(team2Name = normalizedName)
+        }
+        _state.update { it.copy(settings = updatedSettings) }
+        viewModelScope.launch { repository.saveGameSettings(updatedSettings) }
+    }
+
     fun beginInputCapture(action: RemoteAction) {
         _state.update { it.copy(capturingAction = action) }
     }
