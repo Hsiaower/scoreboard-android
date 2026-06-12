@@ -8,6 +8,7 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.absolutePadding
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -24,11 +25,14 @@ import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.displayCutout
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.only
 import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.statusBars
+import androidx.compose.foundation.layout.union
 import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material3.AlertDialog
@@ -54,6 +58,8 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -147,6 +153,10 @@ private fun ScoreboardScreen(
                     onAdjust = { onAdjust(Team.TEAM_1, it) },
                     onEditScore = { editingScoreTeam = Team.TEAM_1 },
                     onEditName = { editingNameTeam = Team.TEAM_1 },
+                    protectLeftEdge = true,
+                    protectRightEdge = false,
+                    protectTopEdge = true,
+                    protectBottomEdge = true,
                 )
                 TeamZone(
                     modifier = Modifier.weight(1f).fillMaxHeight(),
@@ -157,6 +167,10 @@ private fun ScoreboardScreen(
                     onAdjust = { onAdjust(Team.TEAM_2, it) },
                     onEditScore = { editingScoreTeam = Team.TEAM_2 },
                     onEditName = { editingNameTeam = Team.TEAM_2 },
+                    protectLeftEdge = false,
+                    protectRightEdge = true,
+                    protectTopEdge = true,
+                    protectBottomEdge = true,
                 )
             }
         } else {
@@ -170,6 +184,10 @@ private fun ScoreboardScreen(
                     onAdjust = { onAdjust(Team.TEAM_1, it) },
                     onEditScore = { editingScoreTeam = Team.TEAM_1 },
                     onEditName = { editingNameTeam = Team.TEAM_1 },
+                    protectLeftEdge = true,
+                    protectRightEdge = true,
+                    protectTopEdge = true,
+                    protectBottomEdge = false,
                 )
                 TeamZone(
                     modifier = Modifier.weight(1f).fillMaxWidth(),
@@ -180,6 +198,10 @@ private fun ScoreboardScreen(
                     onAdjust = { onAdjust(Team.TEAM_2, it) },
                     onEditScore = { editingScoreTeam = Team.TEAM_2 },
                     onEditName = { editingNameTeam = Team.TEAM_2 },
+                    protectLeftEdge = true,
+                    protectRightEdge = true,
+                    protectTopEdge = false,
+                    protectBottomEdge = true,
                 )
             }
         }
@@ -189,7 +211,7 @@ private fun ScoreboardScreen(
                 .align(Alignment.TopCenter)
                 .fillMaxWidth()
                 .windowInsetsPadding(
-                    WindowInsets.safeDrawing.only(
+                    WindowInsets.statusBars.union(WindowInsets.displayCutout).only(
                         WindowInsetsSides.Top + WindowInsetsSides.Horizontal,
                     ),
                 )
@@ -278,13 +300,15 @@ private fun TeamZone(
     onAdjust: (Int) -> Unit,
     onEditScore: () -> Unit,
     onEditName: () -> Unit,
+    protectLeftEdge: Boolean,
+    protectRightEdge: Boolean,
+    protectTopEdge: Boolean,
+    protectBottomEdge: Boolean,
 ) {
     var dragDistance by remember { mutableFloatStateOf(0f) }
-    val winnerBorder = if (isWinner) Modifier.border(8.dp, Color(0xFFFFD54F)) else Modifier
 
     BoxWithConstraints(
         modifier = modifier
-            .then(winnerBorder)
             .background(color)
             .pointerInput(Unit) {
                 detectVerticalDragGestures(
@@ -304,6 +328,8 @@ private fun TeamZone(
             },
         contentAlignment = Alignment.Center,
     ) {
+        val density = LocalDensity.current
+        val layoutDirection = LocalLayoutDirection.current
         val scoreText = score.toString()
         val scoreWidthSize = maxWidth.value / (scoreText.length.coerceAtLeast(2) * 0.58f)
         val scoreHeightSize = maxHeight.value * 0.60f
@@ -314,44 +340,52 @@ private fun TeamZone(
             maxHeight.value * 0.12f,
             nameWidthSize,
         )
-            .coerceIn(20f, 54f)
+            .coerceIn(16f, 54f)
             .sp
-        val headerHeight = (nameFontSize.value * 1.7f).dp
-        val crownSize = (nameFontSize.value * 0.65f).coerceIn(16f, 32f).dp
-
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            verticalArrangement = Arrangement.Center,
-        ) {
-            Box(
-                modifier = Modifier.height(headerHeight).fillMaxWidth(),
-                contentAlignment = Alignment.BottomCenter,
-            ) {
-                if (isWinner) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_crown),
-                        contentDescription = "$teamName winner",
-                        tint = Color.Unspecified,
-                        modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .size(crownSize),
-                    )
+        val headerHeight = (maxHeight.value * 0.25f).coerceIn(64f, 132f).dp
+        val crownAreaHeight = (maxHeight.value * 0.09f).coerceIn(22f, 42f).dp
+        val crownSize = minOf(maxWidth.value * 0.07f, maxHeight.value * 0.08f)
+            .coerceIn(18f, 34f)
+            .dp
+        val borderBaseInset = 8.dp
+        val safeInsets = WindowInsets.safeDrawing
+        val borderLeftInset = maxOf(
+            borderBaseInset,
+            with(density) {
+                if (protectLeftEdge) {
+                    safeInsets.getLeft(this, layoutDirection).toDp()
+                } else {
+                    0.dp
                 }
-                Text(
-                    text = teamName,
-                    color = Color.White,
-                    fontSize = nameFontSize,
-                    lineHeight = nameFontSize,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    modifier = Modifier
-                        .padding(horizontal = 8.dp)
-                        .pointerInput(teamName) {
-                            detectTapGestures(onLongPress = { onEditName() })
-                        },
-                )
-            }
+            },
+        )
+        val borderRightInset = maxOf(
+            borderBaseInset,
+            with(density) {
+                if (protectRightEdge) {
+                    safeInsets.getRight(this, layoutDirection).toDp()
+                } else {
+                    0.dp
+                }
+            },
+        )
+        val borderTopInset = maxOf(
+            borderBaseInset,
+            with(density) {
+                if (protectTopEdge) safeInsets.getTop(this).toDp() else 0.dp
+            },
+        )
+        val borderBottomInset = maxOf(
+            borderBaseInset,
+            with(density) {
+                if (protectBottomEdge) safeInsets.getBottom(this).toDp() else 0.dp
+            },
+        )
+
+        Box(
+            modifier = Modifier.fillMaxSize(),
+            contentAlignment = Alignment.Center,
+        ) {
             Text(
                 text = scoreText,
                 color = Color.White,
@@ -362,6 +396,58 @@ private fun TeamZone(
                 modifier = Modifier.pointerInput(teamName, score) {
                     detectTapGestures(onLongPress = { onEditScore() })
                 },
+            )
+        }
+
+        Column(
+            modifier = Modifier
+                .align(Alignment.TopCenter)
+                .fillMaxWidth()
+                .height(headerHeight)
+                .padding(horizontal = 52.dp, vertical = 4.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Box(
+                modifier = Modifier.fillMaxWidth().height(crownAreaHeight),
+                contentAlignment = Alignment.Center,
+            ) {
+                if (isWinner) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_crown),
+                        contentDescription = "$teamName winner",
+                        tint = Color.Unspecified,
+                        modifier = Modifier.size(crownSize),
+                    )
+                }
+            }
+            Text(
+                text = teamName,
+                color = Color.White,
+                fontSize = nameFontSize,
+                lineHeight = nameFontSize,
+                fontWeight = FontWeight.Bold,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                textAlign = TextAlign.Center,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .pointerInput(teamName) {
+                        detectTapGestures(onLongPress = { onEditName() })
+                    },
+            )
+        }
+
+        if (isWinner) {
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .absolutePadding(
+                        left = borderLeftInset,
+                        top = borderTopInset,
+                        right = borderRightInset,
+                        bottom = borderBottomInset,
+                    )
+                    .border(6.dp, Color(0xFFFFD54F)),
             )
         }
     }

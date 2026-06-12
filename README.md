@@ -19,6 +19,7 @@ A touch-first two-team Android scoreboard built with Kotlin and Jetpack Compose.
 - Stable winner presentation with a border and crown indicator
 - Long-press team names to rename them with persistent adaptive sizing
 - Cutout-safe, background-free reset and settings controls
+- Fixed score/header regions and an inset cutout-safe winner border
 - Keyboard/gamepad single-press mapping for scoring and reset actions
 - Data model placeholders for double-press and long-press mappings
 - GitHub Actions debug APK build and artifact upload
