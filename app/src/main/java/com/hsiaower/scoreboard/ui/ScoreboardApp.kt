@@ -419,8 +419,9 @@ private fun WinnerBorder(
 ) {
     Canvas(modifier = modifier) {
         val strokeWidth = 3.dp.toPx()
+        val cornerCompensation = 2.5.dp.toPx()
         val outerRadii = cornerRadii.toPixelCornerRadii(density)
-        val innerRadii = outerRadii.insetBy(strokeWidth)
+        val innerRadii = outerRadii.insetBy(strokeWidth + cornerCompensation)
         val borderPath = Path().apply {
             fillType = PathFillType.EvenOdd
             addRoundRect(
