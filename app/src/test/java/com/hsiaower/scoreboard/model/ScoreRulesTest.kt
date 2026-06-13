@@ -6,7 +6,7 @@ import org.junit.Test
 
 class ScoreRulesTest {
     @Test
-    fun `winner cannot increase after win by two victory`() {
+    fun `winner can increase after win by two victory for corrections`() {
         val scores = ScoreRules.adjust(
             team = Team.TEAM_1,
             delta = 1,
@@ -15,11 +15,11 @@ class ScoreRulesTest {
             settings = GameSettings(winningScore = 25, winByTwo = true),
         )
 
-        assertEquals(Scores(26, 24), scores)
+        assertEquals(Scores(27, 24), scores)
     }
 
     @Test
-    fun `winner cannot increase after ordinary target victory`() {
+    fun `winner can increase after ordinary target victory for corrections`() {
         val scores = ScoreRules.adjust(
             team = Team.TEAM_2,
             delta = 1,
@@ -28,7 +28,7 @@ class ScoreRulesTest {
             settings = GameSettings(winningScore = 25, winByTwo = false),
         )
 
-        assertEquals(Scores(20, 25), scores)
+        assertEquals(Scores(20, 26), scores)
     }
 
     @Test
@@ -100,7 +100,7 @@ class ScoreRulesTest {
     }
 
     @Test
-    fun `manual score validates hard cap and winner increase`() {
+    fun `manual score validates hard cap and permits winner corrections`() {
         val cappedSettings = GameSettings(hardCapEnabled = true, hardCapScore = 30)
         assertEquals(
             ScoreValidationError.ABOVE_HARD_CAP,
@@ -108,8 +108,7 @@ class ScoreRulesTest {
         )
 
         val winByTwoSettings = GameSettings(winningScore = 25, winByTwo = true)
-        assertEquals(
-            ScoreValidationError.WINNER_CANNOT_INCREASE,
+        assertNull(
             ScoreRules.validateManualScore(Team.TEAM_1, 27, 26, 24, winByTwoSettings),
         )
         assertNull(

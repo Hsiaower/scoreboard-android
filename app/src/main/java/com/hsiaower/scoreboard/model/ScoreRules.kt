@@ -3,7 +3,6 @@ package com.hsiaower.scoreboard.model
 enum class ScoreValidationError {
     NEGATIVE,
     ABOVE_HARD_CAP,
-    WINNER_CANNOT_INCREASE,
 }
 
 data class Scores(
@@ -19,11 +18,6 @@ object ScoreRules {
         team2Score: Int,
         settings: GameSettings,
     ): Scores {
-        val currentWinner = WinnerRules.determineWinner(team1Score, team2Score, settings)
-        if (delta > 0 && currentWinner == team) {
-            return Scores(team1Score, team2Score)
-        }
-
         val currentScore = if (team == Team.TEAM_1) team1Score else team2Score
         var updatedScore = (currentScore + delta).coerceAtLeast(0)
         if (delta > 0 && settings.winByTwo && settings.hardCapEnabled) {
@@ -46,12 +40,6 @@ object ScoreRules {
         if (newScore < 0) return ScoreValidationError.NEGATIVE
         if (settings.winByTwo && settings.hardCapEnabled && newScore > settings.hardCapScore) {
             return ScoreValidationError.ABOVE_HARD_CAP
-        }
-
-        val currentWinner = WinnerRules.determineWinner(team1Score, team2Score, settings)
-        val currentScore = if (team == Team.TEAM_1) team1Score else team2Score
-        if (currentWinner == team && newScore > currentScore) {
-            return ScoreValidationError.WINNER_CANNOT_INCREASE
         }
 
         return null
