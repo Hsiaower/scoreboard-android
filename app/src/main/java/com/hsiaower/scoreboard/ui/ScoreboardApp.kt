@@ -580,8 +580,8 @@ private fun CenterControls(
                 ActionButton("\u27F3", "Rotation setup", viewModel::showRotationPlaceholder)
             }
             Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-                ActionMenuButton(
-                    symbol = "\u25F4",
+                IconActionMenuButton(
+                    iconRes = R.drawable.ic_timeline_chart,
                     description = "Timeline",
                     expanded = timelineMenu,
                     onClick = { timelineMenu = true },
@@ -680,6 +680,28 @@ private fun ActionMenuButton(
 }
 
 @Composable
+private fun IconActionMenuButton(
+    iconRes: Int,
+    description: String,
+    expanded: Boolean,
+    onClick: () -> Unit,
+    onDismiss: () -> Unit,
+    menuContent: @Composable ColumnScope.() -> Unit,
+) {
+    Box {
+        IconButton(onClick = onClick, modifier = Modifier.size(40.dp)) {
+            Icon(
+                painter = painterResource(iconRes),
+                contentDescription = description,
+                tint = Color.White,
+                modifier = Modifier.size(32.dp),
+            )
+        }
+        DropdownMenu(expanded = expanded, onDismissRequest = onDismiss, content = menuContent)
+    }
+}
+
+@Composable
 private fun MatchHistoryScreen(
     title: String,
     timeline: MatchTimeline,
@@ -719,6 +741,7 @@ private fun MatchHistoryScreen(
                         team1Score = set.team1Score,
                         team2Score = set.team2Score,
                         events = set.events,
+                        winner = set.winner,
                     )
                 }
                 if (currentScore != null) {
@@ -728,6 +751,7 @@ private fun MatchHistoryScreen(
                             team1Score = currentScore.first,
                             team2Score = currentScore.second,
                             events = timeline.currentSetEvents,
+                            winner = null,
                         )
                     }
                 }
@@ -829,14 +853,27 @@ private fun SetHistoryRow(
     team1Score: Int,
     team2Score: Int,
     events: List<ScoreSnapshot>,
+    winner: Team?,
 ) {
-    val pointEvents = remember(events) { ScoreTimeline.pointEvents(events) }
+    val displayedEvents = remember(events, winner, team1Score, team2Score) {
+        if (winner == null) {
+            events
+        } else {
+            ScoreTimeline.throughWinningPoint(
+                snapshots = events,
+                winner = winner,
+                recordedWinningScore = if (winner == Team.TEAM_1) team1Score else team2Score,
+            )
+        }
+    }
+    val displayedScore = displayedEvents.lastOrNull() ?: ScoreSnapshot(team1Score, team2Score)
+    val pointEvents = remember(displayedEvents) { ScoreTimeline.pointEvents(displayedEvents) }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Set $number", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                MatchSetBox(team1Score, HomeBlue)
-                MatchSetBox(team2Score, AwayRed)
+                MatchSetBox(displayedScore.team1Score, HomeBlue)
+                MatchSetBox(displayedScore.team2Score, AwayRed)
             }
             LazyRow(
                 modifier = Modifier.weight(1f).padding(start = 14.dp),

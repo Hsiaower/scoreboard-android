@@ -5,6 +5,24 @@ import org.junit.Test
 
 class ScoreTimelineTest {
     @Test
+    fun `completed set stops when winner first reaches winning score`() {
+        val snapshots = listOf(
+            ScoreSnapshot(17, 24),
+            ScoreSnapshot(17, 25),
+            ScoreSnapshot(18, 25),
+            ScoreSnapshot(19, 25),
+        )
+
+        assertEquals(
+            listOf(
+                ScoreSnapshot(17, 24, snapshots[0].timestamp),
+                ScoreSnapshot(17, 25, snapshots[1].timestamp),
+            ),
+            ScoreTimeline.throughWinningPoint(snapshots, Team.TEAM_2, 25),
+        )
+    }
+
+    @Test
     fun `events preserve point order between teams`() {
         val events = ScoreTimeline.pointEvents(
             listOf(

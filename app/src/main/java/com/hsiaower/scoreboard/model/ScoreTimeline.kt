@@ -6,6 +6,20 @@ data class PointEvent(
 )
 
 object ScoreTimeline {
+    fun throughWinningPoint(
+        snapshots: List<ScoreSnapshot>,
+        winner: Team,
+        recordedWinningScore: Int,
+    ): List<ScoreSnapshot> {
+        val winningIndex = snapshots.indexOfFirst { snapshot ->
+            when (winner) {
+                Team.TEAM_1 -> snapshot.team1Score >= recordedWinningScore
+                Team.TEAM_2 -> snapshot.team2Score >= recordedWinningScore
+            }
+        }
+        return if (winningIndex >= 0) snapshots.take(winningIndex + 1) else snapshots
+    }
+
     fun pointEvents(snapshots: List<ScoreSnapshot>): List<PointEvent> {
         val events = mutableListOf<PointEvent>()
         var team1Score = 0

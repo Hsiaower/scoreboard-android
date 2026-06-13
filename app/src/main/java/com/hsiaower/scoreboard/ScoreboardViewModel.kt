@@ -18,6 +18,7 @@ import com.hsiaower.scoreboard.model.ScoreValidationError
 import com.hsiaower.scoreboard.model.ScoreboardState
 import com.hsiaower.scoreboard.model.SetTimeline
 import com.hsiaower.scoreboard.model.Team
+import com.hsiaower.scoreboard.model.WinnerRules
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -175,7 +176,7 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
         }
         val updatedState = _state.value
         val timeline = state.currentTimeline
-        val finalEvents = timeline.currentSetEvents.let { events ->
+        val recordedEvents = timeline.currentSetEvents.let { events ->
             if (events.lastOrNull()?.let {
                     it.team1Score == finalMatch.team1Score && it.team2Score == finalMatch.team2Score
                 } == true
@@ -185,6 +186,15 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
                 events + ScoreSnapshot(finalMatch.team1Score, finalMatch.team2Score)
             }
         }
+        val winningIndex = recordedEvents.indexOfFirst { snapshot ->
+            WinnerRules.determineWinner(
+                team1Score = snapshot.team1Score,
+                team2Score = snapshot.team2Score,
+                settings = state.settings,
+            ) == team
+        }
+        val finalEvents = if (winningIndex >= 0) recordedEvents.take(winningIndex + 1) else recordedEvents
+        val winningScore = finalEvents.last()
         saveTimeline(
             timeline.copy(
                 team1Name = state.settings.team1Name,
@@ -193,8 +203,8 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
                 team2Sets = updatedState.match.team2Sets,
                 completedSets = timeline.completedSets + SetTimeline(
                     number = timeline.completedSets.size + 1,
-                    team1Score = finalMatch.team1Score,
-                    team2Score = finalMatch.team2Score,
+                    team1Score = winningScore.team1Score,
+                    team2Score = winningScore.team2Score,
                     winner = team,
                     events = finalEvents,
                 ),
