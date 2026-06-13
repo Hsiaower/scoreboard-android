@@ -20,7 +20,7 @@ object ScoreRules {
         settings: GameSettings,
     ): Scores {
         val currentWinner = WinnerRules.determineWinner(team1Score, team2Score, settings)
-        if (delta > 0 && currentWinner == team) {
+        if (delta > 0 && currentWinner != null) {
             return Scores(team1Score, team2Score)
         }
 

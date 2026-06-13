@@ -45,13 +45,19 @@ class ScoreRulesTest {
     }
 
     @Test
-    fun `non winner remains editable after victory`() {
+    fun `neither team can add points after victory`() {
         val settings = GameSettings(winningScore = 25, winByTwo = true)
 
         assertEquals(
-            Scores(26, 25),
+            Scores(26, 24),
             ScoreRules.adjust(Team.TEAM_2, 1, 26, 24, settings),
         )
+    }
+
+    @Test
+    fun `non winner can still decrease after victory`() {
+        val settings = GameSettings(winningScore = 25, winByTwo = true)
+
         assertEquals(
             Scores(26, 23),
             ScoreRules.adjust(Team.TEAM_2, -1, 26, 24, settings),
