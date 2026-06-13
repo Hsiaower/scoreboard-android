@@ -105,6 +105,20 @@ object MatchFinalizer {
         team2Score > team1Score -> Team.TEAM_2
         else -> null
     }
+
+    fun finalizedSets(
+        winner: Team?,
+        team1Sets: Int,
+        team2Sets: Int,
+        setsToWin: Int,
+    ): Pair<Int, Int> {
+        val target = setsToWin.coerceAtLeast(1)
+        return when (winner) {
+            Team.TEAM_1 -> team1Sets.coerceAtLeast(target) to team2Sets
+            Team.TEAM_2 -> team1Sets to team2Sets.coerceAtLeast(target)
+            null -> team1Sets to team2Sets
+        }
+    }
 }
 
 data class ScoreboardState(

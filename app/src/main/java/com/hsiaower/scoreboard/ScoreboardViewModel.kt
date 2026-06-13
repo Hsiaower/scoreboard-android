@@ -670,13 +670,20 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
         val state = _state.value
         val timeline = state.currentTimeline
         if (!timeline.hasActivity) return
+        val finalWinner = winner ?: state.matchWinner
+        val (team1Sets, team2Sets) = MatchFinalizer.finalizedSets(
+            winner = finalWinner,
+            team1Sets = state.match.team1Sets,
+            team2Sets = state.match.team2Sets,
+            setsToWin = state.settings.setsToWin,
+        )
         val archived = timeline.copy(
             endedAt = System.currentTimeMillis(),
             team1Name = state.settings.team1Name,
             team2Name = state.settings.team2Name,
-            team1Sets = state.match.team1Sets,
-            team2Sets = state.match.team2Sets,
-            matchWinner = winner ?: state.matchWinner,
+            team1Sets = team1Sets,
+            team2Sets = team2Sets,
+            matchWinner = finalWinner,
         )
         val matches = listOf(archived) + state.previousMatches.filterNot { it.id == archived.id }
         _state.update { it.copy(previousMatches = matches) }

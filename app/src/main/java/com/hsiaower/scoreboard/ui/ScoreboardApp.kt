@@ -66,6 +66,7 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.res.painterResource
@@ -799,7 +800,10 @@ private fun SetBox(
 
 @Composable
 private fun IconActionButton(iconRes: Int, description: String, onClick: () -> Unit) {
-    IconButton(onClick = onClick, modifier = Modifier.size(ControlCellSize)) {
+    IconButton(
+        onClick = onClick,
+        modifier = Modifier.size(ControlCellSize).focusProperties { canFocus = false },
+    ) {
         Icon(
             painter = painterResource(iconRes),
             contentDescription = description,
@@ -819,7 +823,10 @@ private fun IconActionMenuButton(
     menuContent: @Composable ColumnScope.() -> Unit,
 ) {
     Box(Modifier.size(ControlCellSize)) {
-        IconButton(onClick = onClick, modifier = Modifier.size(ControlCellSize)) {
+        IconButton(
+            onClick = onClick,
+            modifier = Modifier.size(ControlCellSize).focusProperties { canFocus = false },
+        ) {
             Icon(
                 painter = painterResource(iconRes),
                 contentDescription = description,
