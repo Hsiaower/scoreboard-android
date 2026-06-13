@@ -15,15 +15,21 @@ enum class RemoteAction(val label: String) {
 
 enum class InputType(val label: String) {
     SINGLE_PRESS("Single press"),
-    DOUBLE_PRESS("Double press (placeholder)"),
-    LONG_PRESS("Long press (placeholder)"),
+    LONG_PRESS("Press and hold"),
+    MULTI_BUTTON("Multi-button combination"),
 }
 
 data class RemoteMapping(
-    val keyCode: Int,
+    val keyCodes: Set<Int>,
     val displayName: String,
     val inputType: InputType = InputType.SINGLE_PRESS,
-)
+) {
+    constructor(
+        keyCode: Int,
+        displayName: String,
+        inputType: InputType = InputType.SINGLE_PRESS,
+    ) : this(setOf(keyCode), displayName, inputType)
+}
 
 data class GameSettings(
     val winningScore: Int = 25,
@@ -95,6 +101,8 @@ data class ScoreboardState(
     val match: MatchState = MatchState(),
     val remoteMappings: Map<RemoteAction, RemoteMapping> = emptyMap(),
     val capturingAction: RemoteAction? = null,
+    val capturingInputType: InputType? = null,
+    val capturedKeyCodes: Set<Int> = emptySet(),
     val currentScreen: AppScreen = AppScreen.SCOREBOARD,
     val canUndo: Boolean = false,
     val canRedo: Boolean = false,

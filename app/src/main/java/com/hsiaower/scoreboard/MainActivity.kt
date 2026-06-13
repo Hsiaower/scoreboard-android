@@ -32,11 +32,12 @@ class MainActivity : ComponentActivity() {
             enterImmersiveMode()
         } else {
             handledKeyCodes.clear()
+            viewModel.releaseRemoteInputs()
         }
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        if (keyCode in handledKeyCodes || viewModel.handleKeyEvent(event)) {
+        if (viewModel.handleKeyEvent(event) || keyCode in handledKeyCodes) {
             handledKeyCodes += keyCode
             return true
         }
@@ -44,7 +45,8 @@ class MainActivity : ComponentActivity() {
     }
 
     override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
-        if (handledKeyCodes.remove(keyCode)) return true
+        val handled = viewModel.handleKeyEvent(event)
+        if (handledKeyCodes.remove(keyCode) || handled) return true
         return super.onKeyUp(keyCode, event)
     }
 

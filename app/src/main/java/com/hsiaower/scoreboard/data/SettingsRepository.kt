@@ -59,12 +59,19 @@ class SettingsRepository(private val context: Context) {
     val remoteMappings: Flow<Map<RemoteAction, RemoteMapping>> =
         context.dataStore.data.map { preferences ->
             RemoteAction.entries.mapNotNull { action ->
-                val keyCode = preferences[keyCodeKey(action)] ?: return@mapNotNull null
-                val displayName = preferences[keyNameKey(action)] ?: "Key $keyCode"
+                val keyCodes = preferences[keyCodesKey(action)]
+                    ?.split(',')
+                    ?.mapNotNull(String::toIntOrNull)
+                    ?.toSet()
+                    ?.takeIf { it.isNotEmpty() }
+                    ?: preferences[keyCodeKey(action)]?.let(::setOf)
+                    ?: return@mapNotNull null
+                val displayName = preferences[keyNameKey(action)]
+                    ?: keyCodes.joinToString(" + ") { "Key $it" }
                 val typeName = preferences[inputTypeKey(action)] ?: InputType.SINGLE_PRESS.name
                 val inputType = InputType.entries.firstOrNull { it.name == typeName }
                     ?: InputType.SINGLE_PRESS
-                action to RemoteMapping(keyCode, displayName, inputType)
+                action to RemoteMapping(keyCodes, displayName, inputType)
             }.toMap()
         }
 
@@ -120,7 +127,8 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun saveRemoteMapping(action: RemoteAction, mapping: RemoteMapping) {
         context.dataStore.edit { preferences ->
-            preferences[keyCodeKey(action)] = mapping.keyCode
+            preferences[keyCodesKey(action)] = mapping.keyCodes.sorted().joinToString(",")
+            preferences[keyCodeKey(action)] = mapping.keyCodes.min()
             preferences[keyNameKey(action)] = mapping.displayName
             preferences[inputTypeKey(action)] = mapping.inputType.name
         }
@@ -128,11 +136,15 @@ class SettingsRepository(private val context: Context) {
 
     suspend fun clearRemoteMapping(action: RemoteAction) {
         context.dataStore.edit { preferences ->
+            preferences.remove(keyCodesKey(action))
             preferences.remove(keyCodeKey(action))
             preferences.remove(keyNameKey(action))
             preferences.remove(inputTypeKey(action))
         }
     }
+
+    private fun keyCodesKey(action: RemoteAction): Preferences.Key<String> =
+        stringPreferencesKey("remote_${action.name}_key_codes")
 
     private fun keyCodeKey(action: RemoteAction): Preferences.Key<Int> =
         intPreferencesKey("remote_${action.name}_key_code")

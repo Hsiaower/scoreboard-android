@@ -1271,15 +1271,16 @@ private fun TutorialScreen(onComplete: () -> Unit) {
 @Composable
 private fun RemoteMappingScreen(
     state: ScoreboardState,
-    onSetInput: (RemoteAction) -> Unit,
+    onSetInput: (RemoteAction, InputType) -> Unit,
     onClear: (RemoteAction) -> Unit,
     onCancelCapture: () -> Unit,
     onBack: () -> Unit,
 ) {
+    var choosingInputFor by remember { mutableStateOf<RemoteAction?>(null) }
     Box(Modifier.fillMaxSize()) {
         SettingsScaffold("Remote mapping", onBack) {
             Text(
-                "Single press is active. Double and long press remain placeholders.",
+                "Assign a single press, press and hold, or multi-button combination.",
                 color = MutedText,
             )
             RemoteAction.entries.forEach { action ->
@@ -1297,7 +1298,7 @@ private fun RemoteMappingScreen(
                                 color = MutedText,
                             )
                         }
-                        TextButton(onClick = { onSetInput(action) }) { Text("Set input") }
+                        TextButton(onClick = { choosingInputFor = action }) { Text("Set input") }
                         if (state.remoteMappings[action] != null) {
                             TextButton(onClick = { onClear(action) }) { Text("Clear") }
                         }
@@ -1306,7 +1307,34 @@ private fun RemoteMappingScreen(
             }
         }
 
+        choosingInputFor?.let { action ->
+            AlertDialog(
+                onDismissRequest = { choosingInputFor = null },
+                title = { Text("Choose input type") },
+                text = {
+                    Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                        InputType.entries.forEach { inputType ->
+                            OutlinedButton(
+                                onClick = {
+                                    choosingInputFor = null
+                                    onSetInput(action, inputType)
+                                },
+                                modifier = Modifier.fillMaxWidth(),
+                            ) {
+                                Text(inputType.label)
+                            }
+                        }
+                    }
+                },
+                confirmButton = {},
+                dismissButton = {
+                    TextButton(onClick = { choosingInputFor = null }) { Text("Cancel") }
+                },
+            )
+        }
+
         state.capturingAction?.let { action ->
+            val inputType = state.capturingInputType ?: InputType.SINGLE_PRESS
             Box(
                 modifier = Modifier
                     .fillMaxSize()
@@ -1329,7 +1357,33 @@ private fun RemoteMappingScreen(
                             fontSize = 28.sp,
                             fontWeight = FontWeight.Bold,
                         )
-                        Text("Waiting for ${action.label}", color = MutedText, fontSize = 18.sp)
+                        Text(
+                            when (inputType) {
+                                InputType.SINGLE_PRESS ->
+                                    "Press one button for ${action.label}."
+                                InputType.LONG_PRESS ->
+                                    "Press the button to hold for ${action.label}."
+                                InputType.MULTI_BUTTON ->
+                                    "Hold two or more buttons together, then release."
+                            },
+                            color = MutedText,
+                            fontSize = 18.sp,
+                        )
+                        if (inputType == InputType.MULTI_BUTTON) {
+                            Text(
+                                if (state.capturedKeyCodes.isEmpty()) {
+                                    "No buttons detected yet"
+                                } else {
+                                    state.capturedKeyCodes.sorted().joinToString(" + ") {
+                                        android.view.KeyEvent.keyCodeToString(it)
+                                            .removePrefix("KEYCODE_")
+                                    }
+                                },
+                                color = WinnerGold,
+                                fontSize = 18.sp,
+                                fontWeight = FontWeight.Bold,
+                            )
+                        }
                         TextButton(
                             onClick = onCancelCapture,
                             modifier = Modifier.align(Alignment.End),

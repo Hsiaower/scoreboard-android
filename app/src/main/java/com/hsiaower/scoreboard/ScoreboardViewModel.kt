@@ -20,6 +20,7 @@ import com.hsiaower.scoreboard.model.SetTimeline
 import com.hsiaower.scoreboard.model.Team
 import com.hsiaower.scoreboard.model.TimeoutEvent
 import com.hsiaower.scoreboard.model.WinnerRules
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -34,6 +35,9 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
     val state: StateFlow<ScoreboardState> = _state.asStateFlow()
     private val undoStack = ArrayDeque<MatchState>()
     private val redoStack = ArrayDeque<MatchState>()
+    private val pressedRemoteKeys = mutableSetOf<Int>()
+    private val activeMultiButtonActions = mutableSetOf<RemoteAction>()
+    private val longPressJobs = mutableMapOf<RemoteAction, Job>()
     private var settingsLoaded = false
 
     init {
@@ -322,7 +326,8 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun navigate(screen: AppScreen) {
-        _state.update { it.copy(currentScreen = screen, capturingAction = null) }
+        cancelInputCapture()
+        _state.update { it.copy(currentScreen = screen) }
     }
 
     fun openMatchHistory(matchId: Long) {
@@ -368,38 +373,143 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch { repository.saveGameSettings(updatedSettings) }
     }
 
-    fun beginInputCapture(action: RemoteAction) {
-        _state.update { it.copy(capturingAction = action) }
+    fun beginInputCapture(action: RemoteAction, inputType: InputType) {
+        _state.update {
+            it.copy(
+                capturingAction = action,
+                capturingInputType = inputType,
+                capturedKeyCodes = emptySet(),
+            )
+        }
     }
 
     fun cancelInputCapture() {
-        _state.update { it.copy(capturingAction = null) }
+        _state.update {
+            it.copy(
+                capturingAction = null,
+                capturingInputType = null,
+                capturedKeyCodes = emptySet(),
+            )
+        }
     }
 
     fun clearMapping(action: RemoteAction) {
         viewModelScope.launch { repository.clearRemoteMapping(action) }
     }
 
+    fun releaseRemoteInputs() {
+        pressedRemoteKeys.clear()
+        activeMultiButtonActions.clear()
+        longPressJobs.values.forEach(Job::cancel)
+        longPressJobs.clear()
+    }
+
     fun handleKeyEvent(event: KeyEvent): Boolean {
-        if (event.action != KeyEvent.ACTION_DOWN || event.repeatCount > 0) return false
         if (event.keyCode == KeyEvent.KEYCODE_BACK) return false
 
-        val capturingAction = _state.value.capturingAction
-        if (capturingAction != null) {
-            val mapping = RemoteMapping(
-                keyCode = event.keyCode,
-                displayName = KeyEvent.keyCodeToString(event.keyCode).removePrefix("KEYCODE_"),
-                inputType = InputType.SINGLE_PRESS,
-            )
-            _state.update { it.copy(capturingAction = null) }
-            viewModelScope.launch { repository.saveRemoteMapping(capturingAction, mapping) }
-            return true
+        if (_state.value.capturingAction != null) {
+            return captureRemoteInput(event)
         }
 
-        val action = _state.value.remoteMappings.entries.firstOrNull { (_, mapping) ->
-            mapping.inputType == InputType.SINGLE_PRESS && mapping.keyCode == event.keyCode
-        }?.key ?: return false
+        val relevantMappings = _state.value.remoteMappings.filterValues {
+            event.keyCode in it.keyCodes
+        }
+        if (relevantMappings.isEmpty()) return false
 
+        when (event.action) {
+            KeyEvent.ACTION_DOWN -> {
+                pressedRemoteKeys += event.keyCode
+                if (event.repeatCount > 0) return true
+
+                relevantMappings.filterValues { it.inputType == InputType.MULTI_BUTTON }
+                    .forEach { (action, mapping) ->
+                        if (
+                            mapping.keyCodes.all(pressedRemoteKeys::contains) &&
+                            activeMultiButtonActions.add(action)
+                        ) {
+                            performRemoteAction(action)
+                        }
+                    }
+                relevantMappings.filterValues { it.inputType == InputType.SINGLE_PRESS }
+                    .keys
+                    .forEach(::performRemoteAction)
+                relevantMappings.filterValues { it.inputType == InputType.LONG_PRESS }
+                    .forEach { (action, mapping) ->
+                        longPressJobs[action]?.cancel()
+                        longPressJobs[action] = viewModelScope.launch {
+                            delay(LONG_PRESS_DURATION_MS)
+                            if (mapping.keyCodes.all(pressedRemoteKeys::contains)) {
+                                performRemoteAction(action)
+                            }
+                        }
+                    }
+            }
+
+            KeyEvent.ACTION_UP -> {
+                pressedRemoteKeys -= event.keyCode
+                relevantMappings.filterValues { it.inputType == InputType.LONG_PRESS }
+                    .keys
+                    .forEach { action -> longPressJobs.remove(action)?.cancel() }
+                activeMultiButtonActions.removeAll { action ->
+                    _state.value.remoteMappings[action]
+                        ?.keyCodes
+                        ?.all(pressedRemoteKeys::contains) != true
+                }
+            }
+
+            else -> return false
+        }
+        return true
+    }
+
+    private fun captureRemoteInput(event: KeyEvent): Boolean {
+        val state = _state.value
+        val action = state.capturingAction ?: return false
+        val inputType = state.capturingInputType ?: InputType.SINGLE_PRESS
+        when (event.action) {
+            KeyEvent.ACTION_DOWN -> {
+                if (event.repeatCount > 0) return true
+                if (inputType == InputType.MULTI_BUTTON) {
+                    _state.update { it.copy(capturedKeyCodes = it.capturedKeyCodes + event.keyCode) }
+                } else {
+                    saveRemoteMapping(action, inputType, setOf(event.keyCode))
+                }
+            }
+
+            KeyEvent.ACTION_UP -> {
+                if (inputType == InputType.MULTI_BUTTON) {
+                    val capturedKeys = _state.value.capturedKeyCodes
+                    if (capturedKeys.size >= 2) {
+                        saveRemoteMapping(action, inputType, capturedKeys)
+                    } else {
+                        _state.update { it.copy(capturedKeyCodes = emptySet()) }
+                    }
+                }
+            }
+
+            else -> return false
+        }
+        return true
+    }
+
+    private fun saveRemoteMapping(
+        action: RemoteAction,
+        inputType: InputType,
+        keyCodes: Set<Int>,
+    ) {
+        val orderedCodes = keyCodes.sorted()
+        val mapping = RemoteMapping(
+            keyCodes = orderedCodes.toSet(),
+            displayName = orderedCodes.joinToString(" + ") { keyCode ->
+                KeyEvent.keyCodeToString(keyCode).removePrefix("KEYCODE_")
+            },
+            inputType = inputType,
+        )
+        cancelInputCapture()
+        viewModelScope.launch { repository.saveRemoteMapping(action, mapping) }
+    }
+
+    private fun performRemoteAction(action: RemoteAction) {
         when (action) {
             RemoteAction.TEAM_1_PLUS -> adjustScore(Team.TEAM_1, 1)
             RemoteAction.TEAM_1_MINUS -> adjustScore(Team.TEAM_1, -1)
@@ -407,7 +517,6 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
             RemoteAction.TEAM_2_MINUS -> adjustScore(Team.TEAM_2, -1)
             RemoteAction.RESET -> clearScore()
         }
-        return true
     }
 
     private fun updateMatch(
@@ -447,6 +556,10 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
                 currentSetEvents = timeline.currentSetEvents + ScoreSnapshot(team1Score, team2Score),
             ),
         )
+    }
+
+    private companion object {
+        const val LONG_PRESS_DURATION_MS = 600L
     }
 
     private fun recordTimeout(team: Team, team1Score: Int, team2Score: Int) {
