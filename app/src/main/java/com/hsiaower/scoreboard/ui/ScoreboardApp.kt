@@ -156,30 +156,17 @@ private fun ScoreboardScreen(state: ScoreboardState, viewModel: ScoreboardViewMo
     val left = if (state.match.team1OnLeft) team1 else team2
     val right = if (state.match.team1OnLeft) team2 else team1
 
-    BoxWithConstraints(Modifier.fillMaxSize().background(AppBackground)) {
-        if (maxWidth > maxHeight) {
-            LandscapeScoreboard(
-                left = left,
-                right = right,
-                state = state,
-                onEditName = { editingName = it },
-                onEditScore = { editingScore = it },
-                onEditSets = { editingSets = it },
-                onEditTimeouts = { editingTimeouts = it },
-                viewModel = viewModel,
-            )
-        } else {
-            PortraitScoreboard(
-                top = left,
-                bottom = right,
-                state = state,
-                onEditName = { editingName = it },
-                onEditScore = { editingScore = it },
-                onEditSets = { editingSets = it },
-                onEditTimeouts = { editingTimeouts = it },
-                viewModel = viewModel,
-            )
-        }
+    Box(Modifier.fillMaxSize().background(AppBackground)) {
+        LandscapeScoreboard(
+            left = left,
+            right = right,
+            state = state,
+            onEditName = { editingName = it },
+            onEditScore = { editingScore = it },
+            onEditSets = { editingSets = it },
+            onEditTimeouts = { editingTimeouts = it },
+            viewModel = viewModel,
+        )
 
         if (state.rotationMessageVisible) {
             Surface(
@@ -292,47 +279,6 @@ private fun LandscapeScoreboard(
                 onEdit = { onEditScore(right.team) },
             )
         }
-    }
-}
-
-@Composable
-private fun PortraitScoreboard(
-    top: TeamDisplay,
-    bottom: TeamDisplay,
-    state: ScoreboardState,
-    onEditName: (Team) -> Unit,
-    onEditScore: (Team) -> Unit,
-    onEditSets: (Team) -> Unit,
-    onEditTimeouts: (Team) -> Unit,
-    viewModel: ScoreboardViewModel,
-) {
-    Column(Modifier.fillMaxSize().padding(12.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
-        TimerPanel(state, Modifier.fillMaxWidth().height(62.dp), viewModel::toggleTimer, viewModel::resetTimer)
-        TeamHeader(top, Modifier.fillMaxWidth().height(52.dp), onEditName, onEditTimeouts, viewModel::startTimeout)
-        ScoreCard(
-            top,
-            Modifier.fillMaxWidth().weight(1f),
-            { viewModel.adjustScore(top.team, 1) },
-            { viewModel.adjustScore(top.team, -1) },
-            { onEditScore(top.team) },
-        )
-        CenterControls(
-            left = top,
-            right = bottom,
-            state = state,
-            modifier = Modifier.fillMaxWidth().height(96.dp),
-            onEditSets = onEditSets,
-            viewModel = viewModel,
-            horizontal = true,
-        )
-        TeamHeader(bottom, Modifier.fillMaxWidth().height(52.dp), onEditName, onEditTimeouts, viewModel::startTimeout)
-        ScoreCard(
-            bottom,
-            Modifier.fillMaxWidth().weight(1f),
-            { viewModel.adjustScore(bottom.team, 1) },
-            { viewModel.adjustScore(bottom.team, -1) },
-            { onEditScore(bottom.team) },
-        )
     }
 }
 
@@ -471,7 +417,6 @@ private fun CenterControls(
     modifier: Modifier,
     onEditSets: (Team) -> Unit,
     viewModel: ScoreboardViewModel,
-    horizontal: Boolean = false,
 ) {
     var newMenu by remember { mutableStateOf(false) }
     var historyMenu by remember { mutableStateOf(false) }
@@ -542,17 +487,10 @@ private fun CenterControls(
         }
     }
 
-    if (horizontal) {
-        Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceEvenly) {
-            Sets()
-            Actions()
-        }
-    } else {
-        Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
-            Sets()
-            Spacer(Modifier.height(24.dp))
-            Actions()
-        }
+    Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Sets()
+        Spacer(Modifier.height(24.dp))
+        Actions()
     }
 }
 

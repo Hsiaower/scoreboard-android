@@ -4,7 +4,7 @@ A landscape-first volleyball scoreboard built with Kotlin and Jetpack Compose.
 
 ## Features
 
-- Dark match dashboard with blue/red score cards and a responsive portrait fallback
+- Landscape-only dark match dashboard with blue/red score cards
 - Tap a score card to add a point; swipe down to subtract
 - Long-press names, scores, sets, and timeout counts to edit them
 - Persistent scores, sets, timeouts, team names, side assignment, and settings
