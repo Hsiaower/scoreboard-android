@@ -6,7 +6,7 @@ import org.junit.Test
 
 class ScoreRulesTest {
     @Test
-    fun `winner can increase after win by two victory for corrections`() {
+    fun `tap scoring cannot increase after win by two victory`() {
         val scores = ScoreRules.adjust(
             team = Team.TEAM_1,
             delta = 1,
@@ -15,11 +15,11 @@ class ScoreRulesTest {
             settings = GameSettings(winningScore = 25, winByTwo = true),
         )
 
-        assertEquals(Scores(27, 24), scores)
+        assertEquals(Scores(26, 24), scores)
     }
 
     @Test
-    fun `winner can increase after ordinary target victory for corrections`() {
+    fun `tap scoring cannot increase after ordinary target victory`() {
         val scores = ScoreRules.adjust(
             team = Team.TEAM_2,
             delta = 1,
@@ -28,7 +28,7 @@ class ScoreRulesTest {
             settings = GameSettings(winningScore = 25, winByTwo = false),
         )
 
-        assertEquals(Scores(20, 26), scores)
+        assertEquals(Scores(20, 25), scores)
     }
 
     @Test

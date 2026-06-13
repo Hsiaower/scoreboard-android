@@ -18,6 +18,11 @@ object ScoreRules {
         team2Score: Int,
         settings: GameSettings,
     ): Scores {
+        val currentWinner = WinnerRules.determineWinner(team1Score, team2Score, settings)
+        if (delta > 0 && currentWinner == team) {
+            return Scores(team1Score, team2Score)
+        }
+
         val currentScore = if (team == Team.TEAM_1) team1Score else team2Score
         var updatedScore = (currentScore + delta).coerceAtLeast(0)
         if (delta > 0 && settings.winByTwo && settings.hardCapEnabled) {

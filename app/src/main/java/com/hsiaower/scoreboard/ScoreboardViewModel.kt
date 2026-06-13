@@ -19,6 +19,7 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
@@ -45,9 +46,8 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
             }
         }
         viewModelScope.launch {
-            repository.matchState.collect { match ->
-                _state.update { it.copy(match = match) }
-            }
+            val match = repository.matchState.first()
+            _state.update { it.copy(match = match) }
         }
         viewModelScope.launch {
             repository.remoteMappings.collect { mappings ->
@@ -127,6 +127,7 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
 
     fun startTimeout(team: Team) {
         val match = _state.value.match
+        if (match.timerRunning || match.timerSecondsRemaining > 0) return
         val remaining = if (team == Team.TEAM_1) match.team1Timeouts else match.team2Timeouts
         if (remaining <= 0) return
         updateMatch { current ->
