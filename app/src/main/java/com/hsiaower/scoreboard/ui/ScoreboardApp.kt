@@ -25,7 +25,6 @@ import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.offset
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
@@ -59,6 +58,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
@@ -314,10 +314,15 @@ private fun TeamZone(
             )
                 .coerceIn(16f, 54f)
                 .sp
-            val headerHeight = (maxHeight.value * 0.25f).coerceIn(64f, 132f).dp
             val crownSize = minOf(maxWidth.value * 0.18f, maxHeight.value * 0.22f)
                 .coerceIn(52f, 84f)
                 .dp
+            val nameLineHeight = with(LocalDensity.current) { nameFontSize.toDp() }
+            val crownEffectSize = crownSize + 44.dp
+            val headerHeight = maxOf(
+                (maxHeight.value * 0.25f).coerceIn(64f, 132f).dp,
+                crownEffectSize + nameLineHeight + 12.dp,
+            )
             val scoreAreaHeight = maxHeight - headerHeight
             val scoreHeightSize = scoreAreaHeight.value * 0.78f
             val scoreFontSize = minOf(scoreWidthSize, scoreHeightSize).coerceIn(46f, 320f).sp
@@ -368,7 +373,6 @@ private fun TeamZone(
                     textAlign = TextAlign.Center,
                     modifier = Modifier
                         .align(Alignment.BottomCenter)
-                        .offset(y = 8.dp)
                         .zIndex(1f)
                         .fillMaxWidth()
                         .pointerInput(teamName) {
