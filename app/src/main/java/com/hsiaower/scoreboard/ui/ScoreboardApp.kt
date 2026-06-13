@@ -1,6 +1,7 @@
 package com.hsiaower.scoreboard.ui
 
 import android.content.pm.ActivityInfo
+import androidx.activity.compose.BackHandler
 import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -24,6 +25,11 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.safeDrawing
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
@@ -133,6 +139,24 @@ fun ScoreboardApp(viewModel: ScoreboardViewModel) {
             -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
 
             else -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        }
+    }
+    BackHandler(enabled = state.currentScreen != AppScreen.SCOREBOARD) {
+        when (state.currentScreen) {
+            AppScreen.SETTINGS -> viewModel.navigate(AppScreen.SCOREBOARD)
+            AppScreen.REMOTE_MAPPING -> {
+                if (state.capturingAction != null) {
+                    viewModel.cancelInputCapture()
+                } else {
+                    viewModel.navigate(AppScreen.SETTINGS)
+                }
+            }
+            AppScreen.TUTORIAL -> viewModel.completeTutorial()
+            AppScreen.HISTORY,
+            AppScreen.PREVIOUS_MATCHES,
+            -> viewModel.navigate(AppScreen.SCOREBOARD)
+            AppScreen.MATCH_HISTORY -> viewModel.navigate(AppScreen.PREVIOUS_MATCHES)
+            AppScreen.SCOREBOARD -> Unit
         }
     }
     MaterialTheme(
@@ -1156,10 +1180,23 @@ private fun SettingsScaffold(
         modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
     ) {
         Row(
-            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .windowInsetsPadding(
+                    WindowInsets.safeDrawing.only(
+                        WindowInsetsSides.Top + WindowInsetsSides.Horizontal,
+                    ),
+                )
+                .padding(top = 12.dp, bottom = 12.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TextButton(onClick = onBack) { Text("Back") }
+            IconButton(onClick = onBack) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_arrow_back),
+                    contentDescription = "Back",
+                    tint = Color.White.copy(alpha = 0.85f),
+                )
+            }
             Text(title, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
         }
         Column(
