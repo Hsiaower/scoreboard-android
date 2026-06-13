@@ -18,6 +18,7 @@ import com.hsiaower.scoreboard.model.ScoreValidationError
 import com.hsiaower.scoreboard.model.ScoreboardState
 import com.hsiaower.scoreboard.model.SetTimeline
 import com.hsiaower.scoreboard.model.Team
+import com.hsiaower.scoreboard.model.TimeoutEvent
 import com.hsiaower.scoreboard.model.WinnerRules
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -207,8 +208,12 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
                     team2Score = winningScore.team2Score,
                     winner = team,
                     events = finalEvents,
+                    timeoutEvents = timeline.currentSetTimeoutEvents.filter {
+                        it.timestamp <= winningScore.timestamp
+                    },
                 ),
                 currentSetEvents = listOf(ScoreSnapshot(0, 0)),
+                currentSetTimeoutEvents = emptyList(),
             ),
         )
     }
@@ -241,6 +246,7 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
                 )
             }
         }
+        recordTimeout(team, match.team1Score, match.team2Score)
     }
 
     fun toggleTimer() {
@@ -439,6 +445,21 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
                 team1Name = _state.value.settings.team1Name,
                 team2Name = _state.value.settings.team2Name,
                 currentSetEvents = timeline.currentSetEvents + ScoreSnapshot(team1Score, team2Score),
+            ),
+        )
+    }
+
+    private fun recordTimeout(team: Team, team1Score: Int, team2Score: Int) {
+        val timeline = _state.value.currentTimeline
+        saveTimeline(
+            timeline.copy(
+                team1Name = _state.value.settings.team1Name,
+                team2Name = _state.value.settings.team2Name,
+                currentSetTimeoutEvents = timeline.currentSetTimeoutEvents + TimeoutEvent(
+                    team = team,
+                    team1Score = team1Score,
+                    team2Score = team2Score,
+                ),
             ),
         )
     }

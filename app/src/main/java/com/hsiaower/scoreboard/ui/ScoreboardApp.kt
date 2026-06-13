@@ -76,7 +76,6 @@ import com.hsiaower.scoreboard.model.AppScreen
 import com.hsiaower.scoreboard.model.GameSettings
 import com.hsiaower.scoreboard.model.InputType
 import com.hsiaower.scoreboard.model.MatchTimeline
-import com.hsiaower.scoreboard.model.PointEvent
 import com.hsiaower.scoreboard.model.RemoteAction
 import com.hsiaower.scoreboard.model.ScoreTimeline
 import com.hsiaower.scoreboard.model.ScoreSnapshot
@@ -84,6 +83,7 @@ import com.hsiaower.scoreboard.model.ScoreValidationError
 import com.hsiaower.scoreboard.model.ScoreboardState
 import com.hsiaower.scoreboard.model.SetTimeline
 import com.hsiaower.scoreboard.model.Team
+import com.hsiaower.scoreboard.model.TimeoutEvent
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.delay
 import java.time.Instant
@@ -110,6 +110,14 @@ private data class TeamDisplay(
     val color: Color,
     val winner: Boolean,
     val matchWinner: Boolean,
+)
+
+private data class HistoryLaneEvent(
+    val team: Team,
+    val score: Int?,
+    val team1Score: Int,
+    val team2Score: Int,
+    val timestamp: Long,
 )
 
 @Composable
@@ -458,7 +466,7 @@ private fun ScoreCard(
     var dragDistance by remember { mutableFloatStateOf(0f) }
     Card(
         modifier = modifier
-            .pointerInput(team.score) {
+            .pointerInput(team.score, enabled) {
                 detectTapGestures(
                     onTap = { if (enabled) onAdd() },
                     onLongPress = { if (enabled) onEdit() },
@@ -742,6 +750,7 @@ private fun MatchHistoryScreen(
                         team1Name = timeline.team1Name,
                         team2Name = timeline.team2Name,
                         endedAt = null,
+                        timeoutEvents = set.timeoutEvents,
                     )
                 }
                 if (currentScore != null) {
@@ -755,6 +764,7 @@ private fun MatchHistoryScreen(
                             team1Name = timeline.team1Name,
                             team2Name = timeline.team2Name,
                             endedAt = timeline.endedAt,
+                            timeoutEvents = timeline.currentSetTimeoutEvents,
                         )
                     }
                 }
@@ -865,6 +875,7 @@ private fun SetHistoryRow(
     team1Name: String,
     team2Name: String,
     endedAt: Long?,
+    timeoutEvents: List<TimeoutEvent>,
 ) {
     val displayedEvents = remember(events, winner, team1Score, team2Score) {
         if (winner == null) {
@@ -879,12 +890,40 @@ private fun SetHistoryRow(
     }
     val displayedScore = displayedEvents.lastOrNull() ?: ScoreSnapshot(team1Score, team2Score)
     val pointEvents = remember(displayedEvents) { ScoreTimeline.pointEvents(displayedEvents) }
+    val displayedEnd = if (winner == null) {
+        Long.MAX_VALUE
+    } else {
+        displayedEvents.lastOrNull()?.timestamp ?: Long.MAX_VALUE
+    }
+    val laneEvents = remember(pointEvents, timeoutEvents, displayedEnd) {
+        (
+            pointEvents.map { event ->
+                HistoryLaneEvent(
+                    team = event.team,
+                    score = event.score,
+                    team1Score = event.team1Score,
+                    team2Score = event.team2Score,
+                    timestamp = event.timestamp,
+                )
+            } + timeoutEvents
+                .filter { it.timestamp <= displayedEnd }
+                .map { event ->
+                    HistoryLaneEvent(
+                        team = event.team,
+                        score = null,
+                        team1Score = event.team1Score,
+                        team2Score = event.team2Score,
+                        timestamp = event.timestamp,
+                    )
+                }
+            ).sortedBy { it.timestamp }
+    }
     val setStartedAt = displayedEvents.firstOrNull()?.timestamp
     val setEndedAt = displayedEvents.lastOrNull()?.timestamp
     var now by remember(number, winner, endedAt) {
         mutableLongStateOf(endedAt ?: if (winner == null) System.currentTimeMillis() else setEndedAt ?: 0L)
     }
-    var selectedPoint by remember { mutableStateOf<PointEvent?>(null) }
+    var selectedEvent by remember { mutableStateOf<HistoryLaneEvent?>(null) }
     LaunchedEffect(number, winner, endedAt) {
         if (winner == null && endedAt == null) {
             while (true) {
@@ -914,17 +953,21 @@ private fun SetHistoryRow(
                 modifier = Modifier.weight(1f).padding(start = 14.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                items(pointEvents) { event ->
-                    PointTimelineColumn(event) { selectedPoint = event }
+                items(laneEvents) { event ->
+                    HistoryTimelineColumn(event) { selectedEvent = event }
                 }
             }
         }
     }
-    selectedPoint?.let { event ->
+    selectedEvent?.let { event ->
         val teamName = if (event.team == Team.TEAM_1) team1Name else team2Name
         AlertDialog(
-            onDismissRequest = { selectedPoint = null },
-            title = { Text("$teamName point ${event.score}") },
+            onDismissRequest = { selectedEvent = null },
+            title = {
+                Text(
+                    if (event.score == null) "$teamName timeout" else "$teamName point ${event.score}",
+                )
+            },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Score: ${event.team1Score} - ${event.team2Score}")
@@ -932,7 +975,7 @@ private fun SetHistoryRow(
                 }
             },
             confirmButton = {
-                TextButton(onClick = { selectedPoint = null }) {
+                TextButton(onClick = { selectedEvent = null }) {
                     Text("Close")
                 }
             },
@@ -941,15 +984,15 @@ private fun SetHistoryRow(
 }
 
 @Composable
-private fun PointTimelineColumn(event: PointEvent, onClick: () -> Unit) {
+private fun HistoryTimelineColumn(event: HistoryLaneEvent, onClick: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (event.team == Team.TEAM_1) {
-            PointTimelineBox(event.score, HomeBlue, onClick)
+            HistoryTimelineBox(event, HomeBlue, onClick)
         } else {
             Spacer(Modifier.size(width = 38.dp, height = 34.dp))
         }
         if (event.team == Team.TEAM_2) {
-            PointTimelineBox(event.score, AwayRed, onClick)
+            HistoryTimelineBox(event, AwayRed, onClick)
         } else {
             Spacer(Modifier.size(width = 38.dp, height = 34.dp))
         }
@@ -957,20 +1000,29 @@ private fun PointTimelineColumn(event: PointEvent, onClick: () -> Unit) {
 }
 
 @Composable
-private fun PointTimelineBox(score: Int, color: Color, onClick: () -> Unit) {
+private fun HistoryTimelineBox(event: HistoryLaneEvent, color: Color, onClick: () -> Unit) {
     Surface(
         modifier = Modifier.size(width = 38.dp, height = 34.dp).clickable(onClick = onClick),
         color = color,
         shape = RoundedCornerShape(6.dp),
     ) {
         Box(contentAlignment = Alignment.Center) {
-            Text(
-                score.toString(),
-                color = Color.White,
-                fontFamily = FontFamily.Monospace,
-                fontSize = 17.sp,
-                fontWeight = FontWeight.Bold,
-            )
+            if (event.score == null) {
+                Icon(
+                    painter = painterResource(R.drawable.ic_timeout_history),
+                    contentDescription = "Timeout",
+                    tint = Color.White,
+                    modifier = Modifier.size(20.dp),
+                )
+            } else {
+                Text(
+                    event.score.toString(),
+                    color = Color.White,
+                    fontFamily = FontFamily.Monospace,
+                    fontSize = 17.sp,
+                    fontWeight = FontWeight.Bold,
+                )
+            }
         }
     }
 }

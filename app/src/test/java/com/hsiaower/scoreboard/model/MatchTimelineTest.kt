@@ -38,4 +38,19 @@ class MatchTimelineTest {
 
         assertTrue(timeline.hasActivity)
     }
+
+    @Test
+    fun `timeout marks timeline active`() {
+        val timeline = MatchTimeline(
+            currentSetTimeoutEvents = listOf(
+                TimeoutEvent(
+                    team = Team.TEAM_1,
+                    team1Score = 4,
+                    team2Score = 3,
+                ),
+            ),
+        )
+
+        assertTrue(timeline.hasActivity)
+    }
 }

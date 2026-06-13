@@ -56,12 +56,20 @@ data class ScoreSnapshot(
     val timestamp: Long = System.currentTimeMillis(),
 )
 
+data class TimeoutEvent(
+    val team: Team,
+    val team1Score: Int,
+    val team2Score: Int,
+    val timestamp: Long = System.currentTimeMillis(),
+)
+
 data class SetTimeline(
     val number: Int,
     val team1Score: Int,
     val team2Score: Int,
     val winner: Team,
     val events: List<ScoreSnapshot>,
+    val timeoutEvents: List<TimeoutEvent> = emptyList(),
 )
 
 data class MatchTimeline(
@@ -74,10 +82,12 @@ data class MatchTimeline(
     val team2Sets: Int = 0,
     val completedSets: List<SetTimeline> = emptyList(),
     val currentSetEvents: List<ScoreSnapshot> = listOf(ScoreSnapshot(0, 0)),
+    val currentSetTimeoutEvents: List<TimeoutEvent> = emptyList(),
 ) {
     val hasActivity: Boolean
         get() = completedSets.isNotEmpty() ||
-            currentSetEvents.any { it.team1Score != 0 || it.team2Score != 0 }
+            currentSetEvents.any { it.team1Score != 0 || it.team2Score != 0 } ||
+            currentSetTimeoutEvents.isNotEmpty()
 }
 
 data class ScoreboardState(

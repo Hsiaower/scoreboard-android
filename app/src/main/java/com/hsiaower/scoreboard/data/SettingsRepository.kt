@@ -16,6 +16,7 @@ import com.hsiaower.scoreboard.model.RemoteMapping
 import com.hsiaower.scoreboard.model.ScoreSnapshot
 import com.hsiaower.scoreboard.model.SetTimeline
 import com.hsiaower.scoreboard.model.Team
+import com.hsiaower.scoreboard.model.TimeoutEvent
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
 import org.json.JSONArray
@@ -50,7 +51,7 @@ class SettingsRepository(private val context: Context) {
             team1Timeouts = preferences[TEAM_1_TIMEOUTS] ?: defaultTimeouts,
             team2Timeouts = preferences[TEAM_2_TIMEOUTS] ?: defaultTimeouts,
             team1OnLeft = preferences[TEAM_1_ON_LEFT] ?: true,
-            timerSecondsRemaining = preferences[TIMER_SECONDS] ?: 0,
+            timerSecondsRemaining = 0,
             timerRunning = false,
         )
     }
@@ -161,15 +162,28 @@ class SettingsRepository(private val context: Context) {
                     put("team2Score", set.team2Score)
                     put("winner", set.winner.name)
                     put("events", encodeEvents(set.events))
+                    put("timeoutEvents", encodeTimeoutEvents(set.timeoutEvents))
                 })
             }
         })
         put("currentSetEvents", encodeEvents(match.currentSetEvents))
+        put("currentSetTimeoutEvents", encodeTimeoutEvents(match.currentSetTimeoutEvents))
     }
 
     private fun encodeEvents(events: List<ScoreSnapshot>): JSONArray = JSONArray().apply {
         events.forEach { event ->
             put(JSONObject().apply {
+                put("team1Score", event.team1Score)
+                put("team2Score", event.team2Score)
+                put("timestamp", event.timestamp)
+            })
+        }
+    }
+
+    private fun encodeTimeoutEvents(events: List<TimeoutEvent>): JSONArray = JSONArray().apply {
+        events.forEach { event ->
+            put(JSONObject().apply {
+                put("team", event.team.name)
                 put("team1Score", event.team1Score)
                 put("team2Score", event.team2Score)
                 put("timestamp", event.timestamp)
@@ -196,6 +210,7 @@ class SettingsRepository(private val context: Context) {
                 team2Score = set.optInt("team2Score"),
                 winner = Team.entries.firstOrNull { it.name == set.optString("winner") } ?: Team.TEAM_1,
                 events = decodeEvents(set.optJSONArray("events")),
+                timeoutEvents = decodeTimeoutEvents(set.optJSONArray("timeoutEvents")),
             )
         }
         return MatchTimeline(
@@ -209,6 +224,7 @@ class SettingsRepository(private val context: Context) {
             completedSets = completedSets,
             currentSetEvents = decodeEvents(json.optJSONArray("currentSetEvents"))
                 .ifEmpty { listOf(ScoreSnapshot(0, 0)) },
+            currentSetTimeoutEvents = decodeTimeoutEvents(json.optJSONArray("currentSetTimeoutEvents")),
         )
     }
 
@@ -217,6 +233,19 @@ class SettingsRepository(private val context: Context) {
         return List(array.length()) { index ->
             val event = array.getJSONObject(index)
             ScoreSnapshot(
+                team1Score = event.optInt("team1Score"),
+                team2Score = event.optInt("team2Score"),
+                timestamp = event.optLong("timestamp", System.currentTimeMillis()),
+            )
+        }
+    }
+
+    private fun decodeTimeoutEvents(array: JSONArray?): List<TimeoutEvent> {
+        if (array == null) return emptyList()
+        return List(array.length()) { index ->
+            val event = array.getJSONObject(index)
+            TimeoutEvent(
+                team = Team.entries.firstOrNull { it.name == event.optString("team") } ?: Team.TEAM_1,
                 team1Score = event.optInt("team1Score"),
                 team2Score = event.optInt("team2Score"),
                 timestamp = event.optLong("timestamp", System.currentTimeMillis()),
