@@ -3,6 +3,9 @@ package com.hsiaower.scoreboard.model
 data class PointEvent(
     val team: Team,
     val score: Int,
+    val team1Score: Int,
+    val team2Score: Int,
+    val timestamp: Long,
 )
 
 object ScoreTimeline {
@@ -38,11 +41,23 @@ object ScoreTimeline {
             }
             while (team1Score < snapshot.team1Score) {
                 team1Score++
-                events += PointEvent(Team.TEAM_1, team1Score)
+                events += PointEvent(
+                    team = Team.TEAM_1,
+                    score = team1Score,
+                    team1Score = team1Score,
+                    team2Score = team2Score,
+                    timestamp = snapshot.timestamp,
+                )
             }
             while (team2Score < snapshot.team2Score) {
                 team2Score++
-                events += PointEvent(Team.TEAM_2, team2Score)
+                events += PointEvent(
+                    team = Team.TEAM_2,
+                    score = team2Score,
+                    team1Score = team1Score,
+                    team2Score = team2Score,
+                    timestamp = snapshot.timestamp,
+                )
             }
         }
 

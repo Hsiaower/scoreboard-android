@@ -24,20 +24,23 @@ class ScoreTimelineTest {
 
     @Test
     fun `events preserve point order between teams`() {
+        val firstPoint = ScoreSnapshot(1, 0)
+        val secondPoint = ScoreSnapshot(1, 1)
+        val thirdPoint = ScoreSnapshot(2, 1)
         val events = ScoreTimeline.pointEvents(
             listOf(
                 ScoreSnapshot(0, 0),
-                ScoreSnapshot(1, 0),
-                ScoreSnapshot(1, 1),
-                ScoreSnapshot(2, 1),
+                firstPoint,
+                secondPoint,
+                thirdPoint,
             ),
         )
 
         assertEquals(
             listOf(
-                PointEvent(Team.TEAM_1, 1),
-                PointEvent(Team.TEAM_2, 1),
-                PointEvent(Team.TEAM_1, 2),
+                PointEvent(Team.TEAM_1, 1, 1, 0, firstPoint.timestamp),
+                PointEvent(Team.TEAM_2, 1, 1, 1, secondPoint.timestamp),
+                PointEvent(Team.TEAM_1, 2, 2, 1, thirdPoint.timestamp),
             ),
             events,
         )
@@ -57,11 +60,13 @@ class ScoreTimelineTest {
 
     @Test
     fun `score correction removes latest point for that team`() {
+        val firstPoint = ScoreSnapshot(1, 0)
+        val secondPoint = ScoreSnapshot(1, 1)
         val events = ScoreTimeline.pointEvents(
             listOf(
                 ScoreSnapshot(0, 0),
-                ScoreSnapshot(1, 0),
-                ScoreSnapshot(1, 1),
+                firstPoint,
+                secondPoint,
                 ScoreSnapshot(2, 1),
                 ScoreSnapshot(1, 1),
             ),
@@ -69,8 +74,8 @@ class ScoreTimelineTest {
 
         assertEquals(
             listOf(
-                PointEvent(Team.TEAM_1, 1),
-                PointEvent(Team.TEAM_2, 1),
+                PointEvent(Team.TEAM_1, 1, 1, 0, firstPoint.timestamp),
+                PointEvent(Team.TEAM_2, 1, 1, 1, secondPoint.timestamp),
             ),
             events,
         )

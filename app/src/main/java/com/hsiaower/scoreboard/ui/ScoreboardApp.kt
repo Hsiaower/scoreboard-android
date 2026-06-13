@@ -76,6 +76,7 @@ import com.hsiaower.scoreboard.model.AppScreen
 import com.hsiaower.scoreboard.model.GameSettings
 import com.hsiaower.scoreboard.model.InputType
 import com.hsiaower.scoreboard.model.MatchTimeline
+import com.hsiaower.scoreboard.model.PointEvent
 import com.hsiaower.scoreboard.model.RemoteAction
 import com.hsiaower.scoreboard.model.ScoreTimeline
 import com.hsiaower.scoreboard.model.ScoreSnapshot
@@ -738,6 +739,9 @@ private fun MatchHistoryScreen(
                         team2Score = set.team2Score,
                         events = set.events,
                         winner = set.winner,
+                        team1Name = timeline.team1Name,
+                        team2Name = timeline.team2Name,
+                        endedAt = null,
                     )
                 }
                 if (currentScore != null) {
@@ -748,6 +752,9 @@ private fun MatchHistoryScreen(
                             team2Score = currentScore.second,
                             events = timeline.currentSetEvents,
                             winner = null,
+                            team1Name = timeline.team1Name,
+                            team2Name = timeline.team2Name,
+                            endedAt = timeline.endedAt,
                         )
                     }
                 }
@@ -855,6 +862,9 @@ private fun SetHistoryRow(
     team2Score: Int,
     events: List<ScoreSnapshot>,
     winner: Team?,
+    team1Name: String,
+    team2Name: String,
+    endedAt: Long?,
 ) {
     val displayedEvents = remember(events, winner, team1Score, team2Score) {
         if (winner == null) {
@@ -869,8 +879,32 @@ private fun SetHistoryRow(
     }
     val displayedScore = displayedEvents.lastOrNull() ?: ScoreSnapshot(team1Score, team2Score)
     val pointEvents = remember(displayedEvents) { ScoreTimeline.pointEvents(displayedEvents) }
+    val setStartedAt = displayedEvents.firstOrNull()?.timestamp
+    val setEndedAt = displayedEvents.lastOrNull()?.timestamp
+    var now by remember(number, winner, endedAt) {
+        mutableLongStateOf(endedAt ?: if (winner == null) System.currentTimeMillis() else setEndedAt ?: 0L)
+    }
+    var selectedPoint by remember { mutableStateOf<PointEvent?>(null) }
+    LaunchedEffect(number, winner, endedAt) {
+        if (winner == null && endedAt == null) {
+            while (true) {
+                now = System.currentTimeMillis()
+                delay(1_000)
+            }
+        }
+    }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text("Set $number", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("Set $number", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+            if (setStartedAt != null) {
+                Text(
+                    "\u23F1 ${formatDuration((if (winner == null) now else setEndedAt ?: now) - setStartedAt)}",
+                    color = MutedText,
+                    fontSize = 14.sp,
+                    modifier = Modifier.padding(start = 10.dp),
+                )
+            }
+        }
         Row(verticalAlignment = Alignment.CenterVertically) {
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 MatchSetBox(displayedScore.team1Score, HomeBlue)
@@ -881,23 +915,41 @@ private fun SetHistoryRow(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 items(pointEvents) { event ->
-                    PointTimelineColumn(event.team, event.score)
+                    PointTimelineColumn(event) { selectedPoint = event }
                 }
             }
         }
     }
+    selectedPoint?.let { event ->
+        val teamName = if (event.team == Team.TEAM_1) team1Name else team2Name
+        AlertDialog(
+            onDismissRequest = { selectedPoint = null },
+            title = { Text("$teamName point ${event.score}") },
+            text = {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text("Score: ${event.team1Score} - ${event.team2Score}")
+                    Text("Time: ${formatScoreTimestamp(event.timestamp)}")
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { selectedPoint = null }) {
+                    Text("Close")
+                }
+            },
+        )
+    }
 }
 
 @Composable
-private fun PointTimelineColumn(team: Team, score: Int) {
+private fun PointTimelineColumn(event: PointEvent, onClick: () -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        if (team == Team.TEAM_1) {
-            PointTimelineBox(score, HomeBlue)
+        if (event.team == Team.TEAM_1) {
+            PointTimelineBox(event.score, HomeBlue, onClick)
         } else {
             Spacer(Modifier.size(width = 38.dp, height = 34.dp))
         }
-        if (team == Team.TEAM_2) {
-            PointTimelineBox(score, AwayRed)
+        if (event.team == Team.TEAM_2) {
+            PointTimelineBox(event.score, AwayRed, onClick)
         } else {
             Spacer(Modifier.size(width = 38.dp, height = 34.dp))
         }
@@ -905,9 +957,9 @@ private fun PointTimelineColumn(team: Team, score: Int) {
 }
 
 @Composable
-private fun PointTimelineBox(score: Int, color: Color) {
+private fun PointTimelineBox(score: Int, color: Color, onClick: () -> Unit) {
     Surface(
-        modifier = Modifier.size(width = 38.dp, height = 34.dp),
+        modifier = Modifier.size(width = 38.dp, height = 34.dp).clickable(onClick = onClick),
         color = color,
         shape = RoundedCornerShape(6.dp),
     ) {
@@ -925,6 +977,7 @@ private fun PointTimelineBox(score: Int, color: Color) {
 
 private val matchDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("M/d/yyyy")
 private val matchTimeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("h:mm a")
+private val scoreTimestampFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("M/d/yyyy h:mm:ss a")
 
 private fun formatMatchDate(timestamp: Long): String =
     Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()).format(matchDateFormatter)
@@ -934,6 +987,9 @@ private fun formatMatchTimeOnly(timestamp: Long): String =
 
 private fun formatMatchTime(timestamp: Long): String =
     "${formatMatchDate(timestamp)}  ${formatMatchTimeOnly(timestamp)}"
+
+private fun formatScoreTimestamp(timestamp: Long): String =
+    Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()).format(scoreTimestampFormatter)
 
 @Composable
 private fun MatchTimeDetails(timeline: MatchTimeline, modifier: Modifier = Modifier) {
