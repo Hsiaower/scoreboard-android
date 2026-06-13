@@ -29,6 +29,11 @@ object ScoreTimeline {
         var team2Score = 0
 
         snapshots.forEach { snapshot ->
+            if (snapshot.isReset) {
+                team1Score = 0
+                team2Score = 0
+                return@forEach
+            }
             while (team1Score > snapshot.team1Score) {
                 val index = events.indexOfLast { it.team == Team.TEAM_1 }
                 if (index >= 0) events.removeAt(index)

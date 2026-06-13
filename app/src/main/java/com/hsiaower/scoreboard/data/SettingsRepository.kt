@@ -188,6 +188,7 @@ class SettingsRepository(private val context: Context) {
                 put("team1Score", event.team1Score)
                 put("team2Score", event.team2Score)
                 put("timestamp", event.timestamp)
+                put("isReset", event.isReset)
             })
         }
     }
@@ -248,6 +249,7 @@ class SettingsRepository(private val context: Context) {
                 team1Score = event.optInt("team1Score"),
                 team2Score = event.optInt("team2Score"),
                 timestamp = event.optLong("timestamp", System.currentTimeMillis()),
+                isReset = event.optBoolean("isReset", false),
             )
         }
     }

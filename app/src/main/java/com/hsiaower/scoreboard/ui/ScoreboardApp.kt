@@ -121,11 +121,12 @@ private data class TeamDisplay(
 )
 
 private data class HistoryLaneEvent(
-    val team: Team,
+    val team: Team?,
     val score: Int?,
     val team1Score: Int,
     val team2Score: Int,
     val timestamp: Long,
+    val isReset: Boolean = false,
 )
 
 @Composable
@@ -366,7 +367,7 @@ private fun LandscapeScoreboard(
                 left = left,
                 right = right,
                 state = state,
-                modifier = Modifier.width(330.dp),
+                modifier = Modifier.width(300.dp),
                 onToggleTimer = viewModel::toggleTimer,
                 onStartTimeout = viewModel::startTimeout,
                 onEditTimeouts = onEditTimeouts,
@@ -441,9 +442,9 @@ private fun TimerCluster(
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.SpaceBetween,
+        horizontalArrangement = Arrangement.spacedBy(4.dp),
     ) {
-        TimeoutControl(left, onStartTimeout, onEditTimeouts)
+        TimeoutControl(left, countOnLeft = true, onStartTimeout, onEditTimeouts)
         Surface(
             modifier = Modifier.width(170.dp).clickable(onClick = onToggleTimer),
             shape = RoundedCornerShape(8.dp),
@@ -459,34 +460,57 @@ private fun TimerCluster(
                 modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
             )
         }
-        TimeoutControl(right, onStartTimeout, onEditTimeouts)
+        TimeoutControl(right, countOnLeft = false, onStartTimeout, onEditTimeouts)
     }
 }
 
 @Composable
 private fun TimeoutControl(
     team: TeamDisplay,
+    countOnLeft: Boolean,
     onStartTimeout: (Team) -> Unit,
     onEditTimeouts: (Team) -> Unit,
 ) {
-    Column(
+    Row(
         modifier = Modifier
-            .width(62.dp)
+            .size(width = 61.dp, height = 54.dp)
             .pointerInput(team.timeouts) {
                 detectTapGestures(
                     onTap = { onStartTimeout(team.team) },
                     onLongPress = { onEditTimeouts(team.team) },
                 )
-            },
-        horizontalAlignment = Alignment.CenterHorizontally,
+        },
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(1.dp),
     ) {
-        Text("TIMEOUT", color = MutedText, fontSize = 9.sp)
-        Text(
-            text = "◷${team.timeouts}",
-            color = team.color,
-            fontSize = 22.sp,
-            fontWeight = FontWeight.Bold,
-        )
+        @Composable
+        fun Count() {
+            Text(
+                text = team.timeouts.toString(),
+                color = team.color,
+                fontFamily = FontFamily.Monospace,
+                fontSize = 27.sp,
+                fontWeight = FontWeight.Bold,
+            )
+        }
+
+        @Composable
+        fun Clock() {
+            Icon(
+                painter = painterResource(R.drawable.ic_timeout_history),
+                contentDescription = "${team.name} timeout",
+                tint = Color.White.copy(alpha = 0.9f),
+                modifier = Modifier.size(35.dp),
+            )
+        }
+
+        if (countOnLeft) {
+            Count()
+            Clock()
+        } else {
+            Clock()
+            Count()
+        }
     }
 }
 
@@ -600,14 +624,22 @@ private fun CenterControls(
                     onClick = { newMenu = true },
                     onDismiss = { newMenu = false },
                 ) {
-                    DropdownMenuItem(text = { Text("New match") }, onClick = {
-                        newMenu = false
-                        viewModel.newMatch()
-                    })
-                    DropdownMenuItem(text = { Text("Clear score") }, onClick = {
-                        newMenu = false
-                        viewModel.clearScore()
-                    })
+                    DropdownMenuItem(
+                        text = { MenuLabel("New match") },
+                        leadingIcon = { MenuIcon(R.drawable.ic_add, HomeBlue, "New match") },
+                        onClick = {
+                            newMenu = false
+                            viewModel.newMatch()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { MenuLabel("Clear score") },
+                        leadingIcon = { MenuIcon(R.drawable.ic_clear, AwayRed, "Clear score") },
+                        onClick = {
+                            newMenu = false
+                            viewModel.clearScore()
+                        },
+                    )
                 }
                 IconActionMenuButton(
                     iconRes = R.drawable.ic_undo,
@@ -617,7 +649,14 @@ private fun CenterControls(
                     onDismiss = { historyMenu = false },
                 ) {
                     DropdownMenuItem(
-                        text = { Text("Undo") },
+                        text = { MenuLabel("Undo", state.canUndo) },
+                        leadingIcon = {
+                            MenuIcon(
+                                R.drawable.ic_undo,
+                                HomeBlue.copy(alpha = if (state.canUndo) 1f else 0.38f),
+                                "Undo",
+                            )
+                        },
                         enabled = state.canUndo,
                         onClick = {
                             historyMenu = false
@@ -625,7 +664,14 @@ private fun CenterControls(
                         },
                     )
                     DropdownMenuItem(
-                        text = { Text("Redo") },
+                        text = { MenuLabel("Redo", state.canRedo) },
+                        leadingIcon = {
+                            MenuIcon(
+                                R.drawable.ic_redo,
+                                AwayRed.copy(alpha = if (state.canRedo) 1f else 0.38f),
+                                "Redo",
+                            )
+                        },
                         enabled = state.canRedo,
                         onClick = {
                             historyMenu = false
@@ -648,14 +694,30 @@ private fun CenterControls(
                     onClick = { timelineMenu = true },
                     onDismiss = { timelineMenu = false },
                 ) {
-                    DropdownMenuItem(text = { Text("History") }, onClick = {
-                        timelineMenu = false
-                        viewModel.navigate(AppScreen.HISTORY)
-                    })
-                    DropdownMenuItem(text = { Text("Previous matches") }, onClick = {
-                        timelineMenu = false
-                        viewModel.navigate(AppScreen.PREVIOUS_MATCHES)
-                    })
+                    DropdownMenuItem(
+                        text = { MenuLabel("History") },
+                        leadingIcon = {
+                            MenuIcon(R.drawable.ic_timeline_chart, HomeBlue, "History")
+                        },
+                        onClick = {
+                            timelineMenu = false
+                            viewModel.navigate(AppScreen.HISTORY)
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { MenuLabel("Previous matches") },
+                        leadingIcon = {
+                            MenuIcon(
+                                R.drawable.ic_previous_matches,
+                                AwayRed,
+                                "Previous matches",
+                            )
+                        },
+                        onClick = {
+                            timelineMenu = false
+                            viewModel.navigate(AppScreen.PREVIOUS_MATCHES)
+                        },
+                    )
                 }
                 IconActionButton(R.drawable.ic_display, "Display placeholder", viewModel::showRotationPlaceholder)
                 IconActionButton(R.drawable.ic_star, "Favorite placeholder", viewModel::showRotationPlaceholder)
@@ -672,6 +734,25 @@ private fun CenterControls(
         Spacer(Modifier.height(16.dp))
         Actions()
     }
+}
+
+@Composable
+private fun MenuLabel(text: String, enabled: Boolean = true) {
+    Text(
+        text = text,
+        color = Color.White.copy(alpha = if (enabled) 1f else 0.38f),
+        fontSize = 18.sp,
+    )
+}
+
+@Composable
+private fun MenuIcon(iconRes: Int, tint: Color, description: String) {
+    Icon(
+        painter = painterResource(iconRes),
+        contentDescription = description,
+        tint = tint,
+        modifier = Modifier.size(28.dp),
+    )
 }
 
 @Composable
@@ -941,7 +1022,18 @@ private fun SetHistoryRow(
                     team2Score = event.team2Score,
                     timestamp = event.timestamp,
                 )
-            } + timeoutEvents
+            } + displayedEvents
+                .filter { it.isReset }
+                .map { event ->
+                    HistoryLaneEvent(
+                        team = null,
+                        score = null,
+                        team1Score = event.team1Score,
+                        team2Score = event.team2Score,
+                        timestamp = event.timestamp,
+                        isReset = true,
+                    )
+                } + timeoutEvents
                 .filter { it.timestamp <= displayedEnd }
                 .map { event ->
                     HistoryLaneEvent(
@@ -1001,7 +1093,11 @@ private fun SetHistoryRow(
             onDismissRequest = { selectedEvent = null },
             title = {
                 Text(
-                    if (event.score == null) "$teamName timeout" else "$teamName point ${event.score}",
+                    when {
+                        event.isReset -> "Score reset"
+                        event.score == null -> "$teamName timeout"
+                        else -> "$teamName point ${event.score}"
+                    },
                 )
             },
             text = {
@@ -1021,6 +1117,28 @@ private fun SetHistoryRow(
 
 @Composable
 private fun HistoryTimelineColumn(event: HistoryLaneEvent, onClick: () -> Unit) {
+    if (event.isReset) {
+        Box(
+            modifier = Modifier.size(width = 38.dp, height = 76.dp),
+            contentAlignment = Alignment.Center,
+        ) {
+            Surface(
+                modifier = Modifier.size(width = 38.dp, height = 34.dp).clickable(onClick = onClick),
+                color = PanelBackground,
+                shape = RoundedCornerShape(7.dp),
+            ) {
+                Box(contentAlignment = Alignment.Center) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_refresh),
+                        contentDescription = "Score reset",
+                        tint = MutedText,
+                        modifier = Modifier.size(22.dp),
+                    )
+                }
+            }
+        }
+        return
+    }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         if (event.team == Team.TEAM_1) {
             HistoryTimelineBox(event, HomeBlue, onClick)

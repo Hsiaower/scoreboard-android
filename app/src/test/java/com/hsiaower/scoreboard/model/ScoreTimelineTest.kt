@@ -80,4 +80,26 @@ class ScoreTimelineTest {
             events,
         )
     }
+
+    @Test
+    fun `reset preserves earlier points and restarts score counting`() {
+        val beforeReset = ScoreSnapshot(2, 1)
+        val reset = ScoreSnapshot(0, 0, isReset = true)
+        val afterReset = ScoreSnapshot(1, 0)
+
+        val events = ScoreTimeline.pointEvents(
+            listOf(
+                ScoreSnapshot(0, 0),
+                beforeReset,
+                reset,
+                afterReset,
+            ),
+        )
+
+        assertEquals(listOf(1, 2, 1, 1), events.map { it.score })
+        assertEquals(
+            listOf(Team.TEAM_1, Team.TEAM_1, Team.TEAM_2, Team.TEAM_1),
+            events.map { it.team },
+        )
+    }
 }

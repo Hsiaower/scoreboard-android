@@ -268,15 +268,14 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun clearScore() {
+        recordScore(team1Score = 0, team2Score = 0, force = true, isReset = true)
         updateMatch {
-            val updated = it.copy(
+            it.copy(
                 team1Score = 0,
                 team2Score = 0,
                 timerSecondsRemaining = 0,
                 timerRunning = false,
             )
-            if (updated != it) recordScore(0, 0)
-            updated
         }
     }
 
@@ -606,15 +605,24 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
         viewModelScope.launch { repository.saveMatchState(match) }
     }
 
-    private fun recordScore(team1Score: Int, team2Score: Int) {
+    private fun recordScore(
+        team1Score: Int,
+        team2Score: Int,
+        force: Boolean = false,
+        isReset: Boolean = false,
+    ) {
         val timeline = _state.value.currentTimeline
         val last = timeline.currentSetEvents.lastOrNull()
-        if (last?.team1Score == team1Score && last.team2Score == team2Score) return
+        if (!force && last?.team1Score == team1Score && last.team2Score == team2Score) return
         saveTimeline(
             timeline.copy(
                 team1Name = _state.value.settings.team1Name,
                 team2Name = _state.value.settings.team2Name,
-                currentSetEvents = timeline.currentSetEvents + ScoreSnapshot(team1Score, team2Score),
+                currentSetEvents = timeline.currentSetEvents + ScoreSnapshot(
+                    team1Score = team1Score,
+                    team2Score = team2Score,
+                    isReset = isReset,
+                ),
             ),
         )
     }

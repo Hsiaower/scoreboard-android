@@ -61,6 +61,7 @@ data class ScoreSnapshot(
     val team1Score: Int,
     val team2Score: Int,
     val timestamp: Long = System.currentTimeMillis(),
+    val isReset: Boolean = false,
 )
 
 data class TimeoutEvent(
