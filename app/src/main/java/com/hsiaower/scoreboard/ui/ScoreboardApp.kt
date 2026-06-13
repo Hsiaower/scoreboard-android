@@ -1276,41 +1276,70 @@ private fun RemoteMappingScreen(
     onCancelCapture: () -> Unit,
     onBack: () -> Unit,
 ) {
-    SettingsScaffold("Remote mapping", onBack) {
-        Text(
-            "Single press is active. Double and long press remain placeholders.",
-            color = MutedText,
-        )
-        RemoteAction.entries.forEach { action ->
-            Card(colors = CardDefaults.cardColors(containerColor = PanelBackground)) {
-                Row(
-                    Modifier.fillMaxWidth().padding(14.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    Column(Modifier.weight(1f)) {
-                        Text(action.label, color = Color.White, fontWeight = FontWeight.Bold)
-                        Text(
-                            state.remoteMappings[action]?.let { "${it.displayName} · ${it.inputType.label}" }
-                                ?: "Not mapped",
-                            color = MutedText,
-                        )
-                    }
-                    TextButton(onClick = { onSetInput(action) }) { Text("Set input") }
-                    if (state.remoteMappings[action] != null) {
-                        TextButton(onClick = { onClear(action) }) { Text("Clear") }
+    Box(Modifier.fillMaxSize()) {
+        SettingsScaffold("Remote mapping", onBack) {
+            Text(
+                "Single press is active. Double and long press remain placeholders.",
+                color = MutedText,
+            )
+            RemoteAction.entries.forEach { action ->
+                Card(colors = CardDefaults.cardColors(containerColor = PanelBackground)) {
+                    Row(
+                        Modifier.fillMaxWidth().padding(14.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Column(Modifier.weight(1f)) {
+                            Text(action.label, color = Color.White, fontWeight = FontWeight.Bold)
+                            Text(
+                                state.remoteMappings[action]?.let {
+                                    "${it.displayName} - ${it.inputType.label}"
+                                } ?: "Not mapped",
+                                color = MutedText,
+                            )
+                        }
+                        TextButton(onClick = { onSetInput(action) }) { Text("Set input") }
+                        if (state.remoteMappings[action] != null) {
+                            TextButton(onClick = { onClear(action) }) { Text("Clear") }
+                        }
                     }
                 }
             }
         }
-    }
-    if (state.capturingAction != null) {
-        AlertDialog(
-            onDismissRequest = onCancelCapture,
-            title = { Text("Press a remote button") },
-            text = { Text("Waiting for ${state.capturingAction.label}") },
-            confirmButton = {},
-            dismissButton = { TextButton(onClick = onCancelCapture) { Text("Cancel") } },
-        )
+
+        state.capturingAction?.let { action ->
+            Box(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .background(Color.Black.copy(alpha = 0.72f))
+                    .clickable(onClick = {}),
+                contentAlignment = Alignment.Center,
+            ) {
+                Card(
+                    modifier = Modifier.widthIn(min = 340.dp, max = 460.dp),
+                    colors = CardDefaults.cardColors(containerColor = PanelBackground),
+                    shape = RoundedCornerShape(28.dp),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(32.dp),
+                        verticalArrangement = Arrangement.spacedBy(18.dp),
+                    ) {
+                        Text(
+                            "Press a remote button",
+                            color = Color.White,
+                            fontSize = 28.sp,
+                            fontWeight = FontWeight.Bold,
+                        )
+                        Text("Waiting for ${action.label}", color = MutedText, fontSize = 18.sp)
+                        TextButton(
+                            onClick = onCancelCapture,
+                            modifier = Modifier.align(Alignment.End),
+                        ) {
+                            Text("Cancel")
+                        }
+                    }
+                }
+            }
+        }
     }
 }
 

@@ -14,6 +14,7 @@ import com.hsiaower.scoreboard.ui.ScoreboardApp
 
 class MainActivity : ComponentActivity() {
     private val viewModel: ScoreboardViewModel by viewModels()
+    private val handledKeyCodes = mutableSetOf<Int>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -27,11 +28,24 @@ class MainActivity : ComponentActivity() {
 
     override fun onWindowFocusChanged(hasFocus: Boolean) {
         super.onWindowFocusChanged(hasFocus)
-        if (hasFocus) enterImmersiveMode()
+        if (hasFocus) {
+            enterImmersiveMode()
+        } else {
+            handledKeyCodes.clear()
+        }
     }
 
     override fun onKeyDown(keyCode: Int, event: KeyEvent): Boolean {
-        return viewModel.handleKeyEvent(event) || super.onKeyDown(keyCode, event)
+        if (keyCode in handledKeyCodes || viewModel.handleKeyEvent(event)) {
+            handledKeyCodes += keyCode
+            return true
+        }
+        return super.onKeyDown(keyCode, event)
+    }
+
+    override fun onKeyUp(keyCode: Int, event: KeyEvent): Boolean {
+        if (handledKeyCodes.remove(keyCode)) return true
+        return super.onKeyUp(keyCode, event)
     }
 
     private fun enterImmersiveMode() {
