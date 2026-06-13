@@ -10,7 +10,7 @@ enum class RemoteAction(val label: String) {
     TEAM_1_MINUS("Left side -1"),
     TEAM_2_PLUS("Right side +1"),
     TEAM_2_MINUS("Right side -1"),
-    RESET("Reset"),
+    RESET("New match"),
 }
 
 enum class InputType(val label: String) {

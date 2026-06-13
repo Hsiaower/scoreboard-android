@@ -575,7 +575,7 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
             RemoteAction.TEAM_1_MINUS -> adjustScore(leftTeam, -1)
             RemoteAction.TEAM_2_PLUS -> adjustScore(rightTeam, 1)
             RemoteAction.TEAM_2_MINUS -> adjustScore(rightTeam, -1)
-            RemoteAction.RESET -> clearScore()
+            RemoteAction.RESET -> newMatch()
         }
     }
 

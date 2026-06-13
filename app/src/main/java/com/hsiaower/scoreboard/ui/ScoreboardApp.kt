@@ -446,7 +446,11 @@ private fun TimerCluster(
     ) {
         TimeoutControl(left, countOnLeft = true, onStartTimeout, onEditTimeouts)
         Surface(
-            modifier = Modifier.width(170.dp).clickable(onClick = onToggleTimer),
+            modifier = Modifier
+                .width(170.dp)
+                .pointerInput(Unit) {
+                    detectTapGestures(onTap = { onToggleTimer() })
+                },
             shape = RoundedCornerShape(8.dp),
             color = PanelBackground,
         ) {
