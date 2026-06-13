@@ -845,11 +845,21 @@ private fun MatchHistoryScreen(
             horizontalArrangement = Arrangement.Center,
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            Text(timeline.team1Name, color = HomeBlue, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            ArchivedTeamName(
+                name = timeline.team1Name,
+                color = HomeBlue,
+                winner = timeline.matchWinner == Team.TEAM_1,
+                fontSize = 24.sp,
+            )
             MatchSetBox(timeline.team1Sets, HomeBlue)
             Text("-", color = MutedText, fontSize = 28.sp, modifier = Modifier.padding(horizontal = 8.dp))
             MatchSetBox(timeline.team2Sets, AwayRed)
-            Text(timeline.team2Name, color = AwayRed, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            ArchivedTeamName(
+                name = timeline.team2Name,
+                color = AwayRed,
+                winner = timeline.matchWinner == Team.TEAM_2,
+                fontSize = 24.sp,
+            )
         }
         MatchTimeDetails(timeline, Modifier.padding(bottom = 12.dp))
         Card(
@@ -948,11 +958,19 @@ private fun PreviousMatchesScreen(
                                 horizontalArrangement = Arrangement.Center,
                                 verticalAlignment = Alignment.CenterVertically,
                             ) {
-                                Text(match.team1Name, color = HomeBlue, fontWeight = FontWeight.Bold)
+                                ArchivedTeamName(
+                                    name = match.team1Name,
+                                    color = HomeBlue,
+                                    winner = match.matchWinner == Team.TEAM_1,
+                                )
                                 MatchSetBox(match.team1Sets, HomeBlue)
                                 Text("-", color = MutedText, modifier = Modifier.padding(horizontal = 6.dp))
                                 MatchSetBox(match.team2Sets, AwayRed)
-                                Text(match.team2Name, color = AwayRed, fontWeight = FontWeight.Bold)
+                                ArchivedTeamName(
+                                    name = match.team2Name,
+                                    color = AwayRed,
+                                    winner = match.matchWinner == Team.TEAM_2,
+                                )
                             }
                             Text("\u203A", color = Color.White, fontSize = 30.sp)
                         }
@@ -960,6 +978,36 @@ private fun PreviousMatchesScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun ArchivedTeamName(
+    name: String,
+    color: Color,
+    winner: Boolean,
+    fontSize: androidx.compose.ui.unit.TextUnit = 16.sp,
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(5.dp),
+    ) {
+        if (winner) {
+            Icon(
+                painter = painterResource(R.drawable.ic_crown),
+                contentDescription = "Match winner",
+                tint = WinnerGold,
+                modifier = Modifier.size(20.dp),
+            )
+        }
+        Text(
+            text = name,
+            color = color,
+            fontSize = fontSize,
+            fontWeight = FontWeight.Bold,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+        )
     }
 }
 

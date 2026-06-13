@@ -166,6 +166,7 @@ class SettingsRepository(private val context: Context) {
         put("team2Name", match.team2Name)
         put("team1Sets", match.team1Sets)
         put("team2Sets", match.team2Sets)
+        put("matchWinner", match.matchWinner?.name ?: JSONObject.NULL)
         put("completedSets", JSONArray().apply {
             match.completedSets.forEach { set ->
                 put(JSONObject().apply {
@@ -234,6 +235,9 @@ class SettingsRepository(private val context: Context) {
             team2Name = normalizeTeamName(json.optString("team2Name"), "Away Team"),
             team1Sets = json.optInt("team1Sets"),
             team2Sets = json.optInt("team2Sets"),
+            matchWinner = Team.entries.firstOrNull {
+                !json.isNull("matchWinner") && it.name == json.optString("matchWinner")
+            },
             completedSets = completedSets,
             currentSetEvents = decodeEvents(json.optJSONArray("currentSetEvents"))
                 .ifEmpty { listOf(ScoreSnapshot(0, 0)) },

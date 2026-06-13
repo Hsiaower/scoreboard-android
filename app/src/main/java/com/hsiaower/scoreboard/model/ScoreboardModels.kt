@@ -88,6 +88,7 @@ data class MatchTimeline(
     val team2Name: String = "Away Team",
     val team1Sets: Int = 0,
     val team2Sets: Int = 0,
+    val matchWinner: Team? = null,
     val completedSets: List<SetTimeline> = emptyList(),
     val currentSetEvents: List<ScoreSnapshot> = listOf(ScoreSnapshot(0, 0)),
     val currentSetTimeoutEvents: List<TimeoutEvent> = emptyList(),
@@ -96,6 +97,14 @@ data class MatchTimeline(
         get() = completedSets.isNotEmpty() ||
             currentSetEvents.any { it.team1Score != 0 || it.team2Score != 0 } ||
             currentSetTimeoutEvents.isNotEmpty()
+}
+
+object MatchFinalizer {
+    fun winnerFromScore(team1Score: Int, team2Score: Int): Team? = when {
+        team1Score > team2Score -> Team.TEAM_1
+        team2Score > team1Score -> Team.TEAM_2
+        else -> null
+    }
 }
 
 data class ScoreboardState(

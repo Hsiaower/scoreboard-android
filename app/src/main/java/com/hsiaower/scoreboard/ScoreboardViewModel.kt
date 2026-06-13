@@ -10,6 +10,7 @@ import com.hsiaower.scoreboard.model.GameSettings
 import com.hsiaower.scoreboard.model.InputType
 import com.hsiaower.scoreboard.model.MatchTimeline
 import com.hsiaower.scoreboard.model.MatchState
+import com.hsiaower.scoreboard.model.MatchFinalizer
 import com.hsiaower.scoreboard.model.RemoteAction
 import com.hsiaower.scoreboard.model.RemoteMapping
 import com.hsiaower.scoreboard.model.ScoreRules
@@ -280,7 +281,21 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun newMatch() {
-        archiveCurrentMatch()
+        startNewMatch()
+    }
+
+    fun newMatchFromRemote() {
+        val match = _state.value.match
+        startNewMatch(
+            winner = MatchFinalizer.winnerFromScore(
+                team1Score = match.team1Score,
+                team2Score = match.team2Score,
+            ),
+        )
+    }
+
+    private fun startNewMatch(winner: Team? = null) {
+        archiveCurrentMatch(winner)
         undoStack.clear()
         redoStack.clear()
         val settings = _state.value.settings
@@ -575,7 +590,7 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
             RemoteAction.TEAM_1_MINUS -> adjustScore(leftTeam, -1)
             RemoteAction.TEAM_2_PLUS -> adjustScore(rightTeam, 1)
             RemoteAction.TEAM_2_MINUS -> adjustScore(rightTeam, -1)
-            RemoteAction.RESET -> newMatch()
+            RemoteAction.RESET -> newMatchFromRemote()
         }
     }
 
@@ -651,7 +666,7 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
         )
     }
 
-    private fun archiveCurrentMatch() {
+    private fun archiveCurrentMatch(winner: Team? = null) {
         val state = _state.value
         val timeline = state.currentTimeline
         if (!timeline.hasActivity) return
@@ -661,6 +676,7 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
             team2Name = state.settings.team2Name,
             team1Sets = state.match.team1Sets,
             team2Sets = state.match.team2Sets,
+            matchWinner = winner ?: state.matchWinner,
         )
         val matches = listOf(archived) + state.previousMatches.filterNot { it.id == archived.id }
         _state.update { it.copy(previousMatches = matches) }
