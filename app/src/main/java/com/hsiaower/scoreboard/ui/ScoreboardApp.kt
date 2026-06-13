@@ -75,6 +75,7 @@ import com.hsiaower.scoreboard.model.GameSettings
 import com.hsiaower.scoreboard.model.InputType
 import com.hsiaower.scoreboard.model.MatchTimeline
 import com.hsiaower.scoreboard.model.RemoteAction
+import com.hsiaower.scoreboard.model.ScoreTimeline
 import com.hsiaower.scoreboard.model.ScoreSnapshot
 import com.hsiaower.scoreboard.model.ScoreValidationError
 import com.hsiaower.scoreboard.model.ScoreboardState
@@ -829,26 +830,57 @@ private fun SetHistoryRow(
     team2Score: Int,
     events: List<ScoreSnapshot>,
 ) {
+    val pointEvents = remember(events) { ScoreTimeline.pointEvents(events) }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text("Set $number", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
         Row(verticalAlignment = Alignment.CenterVertically) {
-            MatchSetBox(team1Score, HomeBlue)
-            Text("-", color = MutedText, fontSize = 24.sp)
-            MatchSetBox(team2Score, AwayRed)
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                MatchSetBox(team1Score, HomeBlue)
+                MatchSetBox(team2Score, AwayRed)
+            }
             LazyRow(
                 modifier = Modifier.weight(1f).padding(start = 14.dp),
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
-                items(events) { event ->
-                    Surface(color = Color(0xFF303438), shape = RoundedCornerShape(6.dp)) {
-                        Row(Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
-                            Text(event.team1Score.toString(), color = HomeBlue, fontWeight = FontWeight.Bold)
-                            Text("-", color = MutedText, modifier = Modifier.padding(horizontal = 3.dp))
-                            Text(event.team2Score.toString(), color = AwayRed, fontWeight = FontWeight.Bold)
-                        }
-                    }
+                items(pointEvents) { event ->
+                    PointTimelineColumn(event.team, event.score)
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun PointTimelineColumn(team: Team, score: Int) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        if (team == Team.TEAM_1) {
+            PointTimelineBox(score, HomeBlue)
+        } else {
+            Spacer(Modifier.size(width = 38.dp, height = 34.dp))
+        }
+        if (team == Team.TEAM_2) {
+            PointTimelineBox(score, AwayRed)
+        } else {
+            Spacer(Modifier.size(width = 38.dp, height = 34.dp))
+        }
+    }
+}
+
+@Composable
+private fun PointTimelineBox(score: Int, color: Color) {
+    Surface(
+        modifier = Modifier.size(width = 38.dp, height = 34.dp),
+        color = color,
+        shape = RoundedCornerShape(6.dp),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(
+                score.toString(),
+                color = Color.White,
+                fontFamily = FontFamily.Monospace,
+                fontSize = 17.sp,
+                fontWeight = FontWeight.Bold,
+            )
         }
     }
 }
