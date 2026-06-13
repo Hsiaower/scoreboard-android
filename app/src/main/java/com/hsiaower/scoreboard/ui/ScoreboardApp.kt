@@ -56,6 +56,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
+import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalDensity
@@ -152,6 +153,7 @@ private fun ScoreboardScreen(
                     score = state.team1Score,
                     color = Team1Blue,
                     isWinner = state.winner == Team.TEAM_1,
+                    isLandscape = true,
                     onAdjust = { onAdjust(Team.TEAM_1, it) },
                     onEditScore = { editingScoreTeam = Team.TEAM_1 },
                     onEditName = { editingNameTeam = Team.TEAM_1 },
@@ -162,6 +164,7 @@ private fun ScoreboardScreen(
                     score = state.team2Score,
                     color = Team2Red,
                     isWinner = state.winner == Team.TEAM_2,
+                    isLandscape = true,
                     onAdjust = { onAdjust(Team.TEAM_2, it) },
                     onEditScore = { editingScoreTeam = Team.TEAM_2 },
                     onEditName = { editingNameTeam = Team.TEAM_2 },
@@ -175,6 +178,7 @@ private fun ScoreboardScreen(
                     score = state.team1Score,
                     color = Team1Blue,
                     isWinner = state.winner == Team.TEAM_1,
+                    isLandscape = false,
                     onAdjust = { onAdjust(Team.TEAM_1, it) },
                     onEditScore = { editingScoreTeam = Team.TEAM_1 },
                     onEditName = { editingNameTeam = Team.TEAM_1 },
@@ -185,6 +189,7 @@ private fun ScoreboardScreen(
                     score = state.team2Score,
                     color = Team2Red,
                     isWinner = state.winner == Team.TEAM_2,
+                    isLandscape = false,
                     onAdjust = { onAdjust(Team.TEAM_2, it) },
                     onEditScore = { editingScoreTeam = Team.TEAM_2 },
                     onEditName = { editingNameTeam = Team.TEAM_2 },
@@ -277,6 +282,7 @@ private fun TeamZone(
     score: Int,
     color: Color,
     isWinner: Boolean,
+    isLandscape: Boolean,
     onAdjust: (Int) -> Unit,
     onEditScore: () -> Unit,
     onEditName: () -> Unit,
@@ -306,7 +312,17 @@ private fun TeamZone(
     ) {
             val scoreText = score.toString()
             val scoreWidthSize = maxWidth.value / (scoreText.length.coerceAtLeast(2) * 0.58f)
-            val nameWidthSize = maxWidth.value / (teamName.length.coerceAtLeast(6) * 0.60f)
+            val crownSize = minOf(maxWidth.value * 0.18f, maxHeight.value * 0.22f)
+                .coerceIn(52f, 84f)
+                .dp
+            val crownEffectSize = crownSize + 44.dp
+            val availableNameWidth = if (isLandscape && isWinner) {
+                (maxWidth.value - crownEffectSize.value - 12f).coerceAtLeast(120f)
+            } else {
+                maxWidth.value
+            }
+            val nameWidthSize =
+                availableNameWidth / (teamName.length.coerceAtLeast(6) * 0.60f)
             val nameFontSize = minOf(
                 maxWidth.value * 0.11f,
                 maxHeight.value * 0.12f,
@@ -314,15 +330,13 @@ private fun TeamZone(
             )
                 .coerceIn(16f, 54f)
                 .sp
-            val crownSize = minOf(maxWidth.value * 0.18f, maxHeight.value * 0.22f)
-                .coerceIn(52f, 84f)
-                .dp
             val nameLineHeight = with(LocalDensity.current) { nameFontSize.toDp() }
-            val crownEffectSize = crownSize + 44.dp
-            val headerHeight = maxOf(
-                (maxHeight.value * 0.25f).coerceIn(64f, 132f).dp,
-                crownEffectSize + nameLineHeight + 12.dp,
-            )
+            val baseHeaderHeight = (maxHeight.value * 0.25f).coerceIn(64f, 132f).dp
+            val headerHeight = if (isLandscape) {
+                maxOf(baseHeaderHeight, crownEffectSize)
+            } else {
+                maxOf(baseHeaderHeight, crownEffectSize + nameLineHeight + 12.dp)
+            }
             val scoreAreaHeight = maxHeight - headerHeight
             val scoreHeightSize = scoreAreaHeight.value * 0.78f
             val scoreFontSize = minOf(scoreWidthSize, scoreHeightSize).coerceIn(46f, 320f).sp
@@ -353,40 +367,79 @@ private fun TeamZone(
                     .height(headerHeight)
                     .padding(horizontal = 52.dp, vertical = 2.dp),
             ) {
-                if (isWinner) {
-                    WinnerCrown(
+                if (isLandscape) {
+                    Row(
+                        modifier = Modifier.fillMaxSize(),
+                        horizontalArrangement = Arrangement.Center,
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        if (isWinner) {
+                            WinnerCrown(
+                                teamName = teamName,
+                                crownSize = crownSize,
+                                crownRotation = -12f,
+                                modifier = Modifier.zIndex(2f),
+                            )
+                            Spacer(Modifier.width(8.dp))
+                        }
+                        TeamName(
+                            teamName = teamName,
+                            fontSize = nameFontSize,
+                            onEditName = onEditName,
+                        )
+                    }
+                } else {
+                    if (isWinner) {
+                        WinnerCrown(
+                            teamName = teamName,
+                            crownSize = crownSize,
+                            crownRotation = -15f,
+                            modifier = Modifier
+                                .align(Alignment.TopEnd)
+                                .zIndex(2f),
+                        )
+                    }
+                    TeamName(
                         teamName = teamName,
-                        crownSize = crownSize,
+                        fontSize = nameFontSize,
+                        onEditName = onEditName,
                         modifier = Modifier
-                            .align(Alignment.TopCenter)
-                            .zIndex(2f),
+                            .align(Alignment.BottomCenter)
+                            .zIndex(1f)
+                            .fillMaxWidth(),
                     )
                 }
-                Text(
-                    text = teamName,
-                    color = Color.White,
-                    fontSize = nameFontSize,
-                    lineHeight = nameFontSize,
-                    fontWeight = FontWeight.Bold,
-                    maxLines = 1,
-                    overflow = TextOverflow.Ellipsis,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .zIndex(1f)
-                        .fillMaxWidth()
-                        .pointerInput(teamName) {
-                            detectTapGestures(onLongPress = { onEditName() })
-                        },
-                )
             }
     }
+}
+
+@Composable
+private fun TeamName(
+    teamName: String,
+    fontSize: androidx.compose.ui.unit.TextUnit,
+    onEditName: () -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    Text(
+        text = teamName,
+        color = Color.White,
+        fontSize = fontSize,
+        lineHeight = fontSize,
+        fontWeight = FontWeight.Bold,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        textAlign = TextAlign.Center,
+        modifier = modifier.pointerInput(teamName) {
+            detectTapGestures(onLongPress = { onEditName() })
+        },
+    )
 }
 
 @Composable
 private fun WinnerCrown(
     teamName: String,
     crownSize: androidx.compose.ui.unit.Dp,
+    crownRotation: Float,
     modifier: Modifier = Modifier,
 ) {
     val transition = rememberInfiniteTransition(label = "winner crown")
@@ -464,7 +517,9 @@ private fun WinnerCrown(
             painter = painterResource(R.drawable.ic_crown),
             contentDescription = "$teamName winner",
             tint = Color.Unspecified,
-            modifier = Modifier.size(crownSize),
+            modifier = Modifier
+                .size(crownSize)
+                .graphicsLayer { rotationZ = crownRotation },
         )
     }
 }
