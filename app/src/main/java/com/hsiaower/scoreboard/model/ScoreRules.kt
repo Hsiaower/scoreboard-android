@@ -3,6 +3,7 @@ package com.hsiaower.scoreboard.model
 enum class ScoreValidationError {
     NEGATIVE,
     ABOVE_HARD_CAP,
+    TIMEOUT_ACTIVE,
 }
 
 data class Scores(

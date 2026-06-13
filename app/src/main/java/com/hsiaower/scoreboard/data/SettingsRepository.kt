@@ -9,11 +9,17 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import com.hsiaower.scoreboard.model.GameSettings
 import com.hsiaower.scoreboard.model.InputType
+import com.hsiaower.scoreboard.model.MatchTimeline
 import com.hsiaower.scoreboard.model.MatchState
 import com.hsiaower.scoreboard.model.RemoteAction
 import com.hsiaower.scoreboard.model.RemoteMapping
+import com.hsiaower.scoreboard.model.ScoreSnapshot
+import com.hsiaower.scoreboard.model.SetTimeline
+import com.hsiaower.scoreboard.model.Team
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import org.json.JSONArray
+import org.json.JSONObject
 
 private val Context.dataStore by preferencesDataStore(name = "scoreboard_settings")
 
@@ -61,6 +67,14 @@ class SettingsRepository(private val context: Context) {
             }.toMap()
         }
 
+    val currentTimeline: Flow<MatchTimeline> = context.dataStore.data.map { preferences ->
+        preferences[CURRENT_TIMELINE]?.let(::decodeMatchTimeline) ?: MatchTimeline()
+    }
+
+    val previousMatches: Flow<List<MatchTimeline>> = context.dataStore.data.map { preferences ->
+        preferences[PREVIOUS_MATCHES]?.let(::decodeMatchList) ?: emptyList()
+    }
+
     suspend fun saveGameSettings(settings: GameSettings) {
         context.dataStore.edit { preferences ->
             preferences[WINNING_SCORE] = settings.winningScore.coerceAtLeast(1)
@@ -86,6 +100,20 @@ class SettingsRepository(private val context: Context) {
             preferences[TEAM_2_TIMEOUTS] = match.team2Timeouts.coerceAtLeast(0)
             preferences[TEAM_1_ON_LEFT] = match.team1OnLeft
             preferences[TIMER_SECONDS] = match.timerSecondsRemaining.coerceAtLeast(0)
+        }
+    }
+
+    suspend fun saveCurrentTimeline(timeline: MatchTimeline) {
+        context.dataStore.edit { preferences ->
+            preferences[CURRENT_TIMELINE] = encodeMatchTimeline(timeline).toString()
+        }
+    }
+
+    suspend fun savePreviousMatches(matches: List<MatchTimeline>) {
+        context.dataStore.edit { preferences ->
+            preferences[PREVIOUS_MATCHES] = JSONArray().apply {
+                matches.take(50).forEach { put(encodeMatchTimeline(it)) }
+            }.toString()
         }
     }
 
@@ -117,6 +145,85 @@ class SettingsRepository(private val context: Context) {
     private fun normalizeTeamName(name: String?, defaultName: String): String =
         name?.trim()?.take(30)?.ifBlank { defaultName } ?: defaultName
 
+    private fun encodeMatchTimeline(match: MatchTimeline): JSONObject = JSONObject().apply {
+        put("id", match.id)
+        put("startedAt", match.startedAt)
+        put("endedAt", match.endedAt ?: JSONObject.NULL)
+        put("team1Name", match.team1Name)
+        put("team2Name", match.team2Name)
+        put("team1Sets", match.team1Sets)
+        put("team2Sets", match.team2Sets)
+        put("completedSets", JSONArray().apply {
+            match.completedSets.forEach { set ->
+                put(JSONObject().apply {
+                    put("number", set.number)
+                    put("team1Score", set.team1Score)
+                    put("team2Score", set.team2Score)
+                    put("winner", set.winner.name)
+                    put("events", encodeEvents(set.events))
+                })
+            }
+        })
+        put("currentSetEvents", encodeEvents(match.currentSetEvents))
+    }
+
+    private fun encodeEvents(events: List<ScoreSnapshot>): JSONArray = JSONArray().apply {
+        events.forEach { event ->
+            put(JSONObject().apply {
+                put("team1Score", event.team1Score)
+                put("team2Score", event.team2Score)
+                put("timestamp", event.timestamp)
+            })
+        }
+    }
+
+    private fun decodeMatchList(value: String): List<MatchTimeline> = runCatching {
+        val array = JSONArray(value)
+        List(array.length()) { decodeMatchTimeline(array.getJSONObject(it)) }
+    }.getOrDefault(emptyList())
+
+    private fun decodeMatchTimeline(value: String): MatchTimeline = runCatching {
+        decodeMatchTimeline(JSONObject(value))
+    }.getOrDefault(MatchTimeline())
+
+    private fun decodeMatchTimeline(json: JSONObject): MatchTimeline {
+        val completedSetsJson = json.optJSONArray("completedSets") ?: JSONArray()
+        val completedSets = List(completedSetsJson.length()) { index ->
+            val set = completedSetsJson.getJSONObject(index)
+            SetTimeline(
+                number = set.optInt("number", index + 1),
+                team1Score = set.optInt("team1Score"),
+                team2Score = set.optInt("team2Score"),
+                winner = Team.entries.firstOrNull { it.name == set.optString("winner") } ?: Team.TEAM_1,
+                events = decodeEvents(set.optJSONArray("events")),
+            )
+        }
+        return MatchTimeline(
+            id = json.optLong("id", System.currentTimeMillis()),
+            startedAt = json.optLong("startedAt", System.currentTimeMillis()),
+            endedAt = json.optLong("endedAt").takeIf { !json.isNull("endedAt") && it > 0 },
+            team1Name = normalizeTeamName(json.optString("team1Name"), "Home Team"),
+            team2Name = normalizeTeamName(json.optString("team2Name"), "Away Team"),
+            team1Sets = json.optInt("team1Sets"),
+            team2Sets = json.optInt("team2Sets"),
+            completedSets = completedSets,
+            currentSetEvents = decodeEvents(json.optJSONArray("currentSetEvents"))
+                .ifEmpty { listOf(ScoreSnapshot(0, 0)) },
+        )
+    }
+
+    private fun decodeEvents(array: JSONArray?): List<ScoreSnapshot> {
+        if (array == null) return emptyList()
+        return List(array.length()) { index ->
+            val event = array.getJSONObject(index)
+            ScoreSnapshot(
+                team1Score = event.optInt("team1Score"),
+                team2Score = event.optInt("team2Score"),
+                timestamp = event.optLong("timestamp", System.currentTimeMillis()),
+            )
+        }
+    }
+
     private companion object {
         val WINNING_SCORE = intPreferencesKey("winning_score")
         val WIN_BY_TWO = booleanPreferencesKey("win_by_two")
@@ -136,5 +243,7 @@ class SettingsRepository(private val context: Context) {
         val TEAM_2_TIMEOUTS = intPreferencesKey("team_2_timeouts")
         val TEAM_1_ON_LEFT = booleanPreferencesKey("team_1_on_left")
         val TIMER_SECONDS = intPreferencesKey("timer_seconds")
+        val CURRENT_TIMELINE = stringPreferencesKey("current_timeline")
+        val PREVIOUS_MATCHES = stringPreferencesKey("previous_matches")
     }
 }

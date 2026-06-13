@@ -50,6 +50,36 @@ data class MatchState(
     val timerRunning: Boolean = false,
 )
 
+data class ScoreSnapshot(
+    val team1Score: Int,
+    val team2Score: Int,
+    val timestamp: Long = System.currentTimeMillis(),
+)
+
+data class SetTimeline(
+    val number: Int,
+    val team1Score: Int,
+    val team2Score: Int,
+    val winner: Team,
+    val events: List<ScoreSnapshot>,
+)
+
+data class MatchTimeline(
+    val id: Long = System.currentTimeMillis(),
+    val startedAt: Long = System.currentTimeMillis(),
+    val endedAt: Long? = null,
+    val team1Name: String = "Home Team",
+    val team2Name: String = "Away Team",
+    val team1Sets: Int = 0,
+    val team2Sets: Int = 0,
+    val completedSets: List<SetTimeline> = emptyList(),
+    val currentSetEvents: List<ScoreSnapshot> = listOf(ScoreSnapshot(0, 0)),
+) {
+    val hasActivity: Boolean
+        get() = completedSets.isNotEmpty() ||
+            currentSetEvents.any { it.team1Score != 0 || it.team2Score != 0 }
+}
+
 data class ScoreboardState(
     val settings: GameSettings = GameSettings(),
     val match: MatchState = MatchState(),
@@ -59,6 +89,9 @@ data class ScoreboardState(
     val canUndo: Boolean = false,
     val canRedo: Boolean = false,
     val rotationMessageVisible: Boolean = false,
+    val currentTimeline: MatchTimeline = MatchTimeline(),
+    val previousMatches: List<MatchTimeline> = emptyList(),
+    val selectedMatchId: Long? = null,
 ) {
     val team1Score: Int get() = match.team1Score
     val team2Score: Int get() = match.team2Score
@@ -77,4 +110,7 @@ enum class AppScreen {
     SETTINGS,
     REMOTE_MAPPING,
     TUTORIAL,
+    HISTORY,
+    PREVIOUS_MATCHES,
+    MATCH_HISTORY,
 }

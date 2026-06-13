@@ -22,6 +22,9 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -70,11 +73,17 @@ import com.hsiaower.scoreboard.ScoreboardViewModel
 import com.hsiaower.scoreboard.model.AppScreen
 import com.hsiaower.scoreboard.model.GameSettings
 import com.hsiaower.scoreboard.model.InputType
+import com.hsiaower.scoreboard.model.MatchTimeline
 import com.hsiaower.scoreboard.model.RemoteAction
+import com.hsiaower.scoreboard.model.ScoreSnapshot
 import com.hsiaower.scoreboard.model.ScoreValidationError
 import com.hsiaower.scoreboard.model.ScoreboardState
+import com.hsiaower.scoreboard.model.SetTimeline
 import com.hsiaower.scoreboard.model.Team
 import kotlinx.coroutines.launch
+import java.time.Instant
+import java.time.ZoneId
+import java.time.format.DateTimeFormatter
 import kotlin.math.abs
 import kotlin.math.min
 
@@ -125,6 +134,37 @@ fun ScoreboardApp(viewModel: ScoreboardViewModel) {
                     onBack = { viewModel.navigate(AppScreen.SETTINGS) },
                 )
                 AppScreen.TUTORIAL -> TutorialScreen(onComplete = viewModel::completeTutorial)
+                AppScreen.HISTORY -> MatchHistoryScreen(
+                    title = "History",
+                    timeline = state.currentTimeline,
+                    currentScore = state.match.team1Score to state.match.team2Score,
+                    onBack = { viewModel.navigate(AppScreen.SCOREBOARD) },
+                )
+                AppScreen.PREVIOUS_MATCHES -> PreviousMatchesScreen(
+                    matches = state.previousMatches,
+                    onBack = { viewModel.navigate(AppScreen.SCOREBOARD) },
+                    onOpen = viewModel::openMatchHistory,
+                )
+                AppScreen.MATCH_HISTORY -> {
+                    val match = state.previousMatches.firstOrNull { it.id == state.selectedMatchId }
+                    if (match == null) {
+                        PreviousMatchesScreen(
+                            matches = state.previousMatches,
+                            onBack = { viewModel.navigate(AppScreen.SCOREBOARD) },
+                            onOpen = viewModel::openMatchHistory,
+                        )
+                    } else {
+                        MatchHistoryScreen(
+                            title = "Match history",
+                            timeline = match,
+                            currentScore = match.currentSetEvents
+                                .lastOrNull()
+                                ?.takeIf { it.team1Score != 0 || it.team2Score != 0 }
+                                ?.let { it.team1Score to it.team2Score },
+                            onBack = { viewModel.navigate(AppScreen.PREVIOUS_MATCHES) },
+                        )
+                    }
+                }
             }
         }
     }
@@ -290,6 +330,7 @@ private fun LandscapeScoreboard(
             ScoreCard(
                 team = left,
                 modifier = Modifier.weight(1f).fillMaxHeight(),
+                enabled = state.match.timerSecondsRemaining <= 0,
                 onAdd = { viewModel.adjustScore(left.team, 1) },
                 onSubtract = { viewModel.adjustScore(left.team, -1) },
                 onEdit = { onEditScore(left.team) },
@@ -305,6 +346,7 @@ private fun LandscapeScoreboard(
             ScoreCard(
                 team = right,
                 modifier = Modifier.weight(1f).fillMaxHeight(),
+                enabled = state.match.timerSecondsRemaining <= 0,
                 onAdd = { viewModel.adjustScore(right.team, 1) },
                 onSubtract = { viewModel.adjustScore(right.team, -1) },
                 onEdit = { onEditScore(right.team) },
@@ -401,6 +443,7 @@ private fun TimeoutControl(
 private fun ScoreCard(
     team: TeamDisplay,
     modifier: Modifier,
+    enabled: Boolean,
     onAdd: () -> Unit,
     onSubtract: () -> Unit,
     onEdit: () -> Unit,
@@ -409,9 +452,12 @@ private fun ScoreCard(
     Card(
         modifier = modifier
             .pointerInput(team.score) {
-                detectTapGestures(onTap = { onAdd() }, onLongPress = { onEdit() })
+                detectTapGestures(
+                    onTap = { if (enabled) onAdd() },
+                    onLongPress = { if (enabled) onEdit() },
+                )
             }
-            .pointerInput(Unit) {
+            .pointerInput(enabled) {
                 detectVerticalDragGestures(
                     onDragStart = { dragDistance = 0f },
                     onVerticalDrag = { change, amount ->
@@ -419,7 +465,7 @@ private fun ScoreCard(
                         dragDistance += amount
                     },
                     onDragEnd = {
-                        if (dragDistance > 48f) onSubtract()
+                        if (enabled && dragDistance > 48f) onSubtract()
                         dragDistance = 0f
                     },
                     onDragCancel = { dragDistance = 0f },
@@ -465,6 +511,7 @@ private fun CenterControls(
 ) {
     var newMenu by remember { mutableStateOf(false) }
     var historyMenu by remember { mutableStateOf(false) }
+    var timelineMenu by remember { mutableStateOf(false) }
 
     @Composable
     fun Sets() {
@@ -486,65 +533,87 @@ private fun CenterControls(
 
     @Composable
     fun Actions() {
-        Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
-            ActionMenuButton(
-                symbol = "＋",
-                description = "Match actions",
-                expanded = newMenu,
-                onClick = { newMenu = true },
-                onDismiss = { newMenu = false },
-            ) {
-                DropdownMenuItem(text = { Text("New match") }, onClick = {
-                    newMenu = false
-                    viewModel.newMatch()
-                })
-                DropdownMenuItem(text = { Text("Clear score") }, onClick = {
-                    newMenu = false
-                    viewModel.clearScore()
-                })
+        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                ActionMenuButton(
+                    symbol = "+",
+                    description = "Match actions",
+                    expanded = newMenu,
+                    onClick = { newMenu = true },
+                    onDismiss = { newMenu = false },
+                ) {
+                    DropdownMenuItem(text = { Text("New match") }, onClick = {
+                        newMenu = false
+                        viewModel.newMatch()
+                    })
+                    DropdownMenuItem(text = { Text("Clear score") }, onClick = {
+                        newMenu = false
+                        viewModel.clearScore()
+                    })
+                }
+                ActionMenuButton(
+                    symbol = "\u21B6",
+                    description = "Undo and redo",
+                    expanded = historyMenu,
+                    onClick = { historyMenu = true },
+                    onDismiss = { historyMenu = false },
+                ) {
+                    DropdownMenuItem(
+                        text = { Text("Undo") },
+                        enabled = state.canUndo,
+                        onClick = {
+                            historyMenu = false
+                            viewModel.undo()
+                        },
+                    )
+                    DropdownMenuItem(
+                        text = { Text("Redo") },
+                        enabled = state.canRedo,
+                        onClick = {
+                            historyMenu = false
+                            viewModel.redo()
+                        },
+                    )
+                }
+                ActionButton("\u21C4", "Switch sides", viewModel::switchSides)
+                ActionButton("\u27F3", "Rotation setup", viewModel::showRotationPlaceholder)
             }
-            ActionMenuButton(
-                symbol = "↶",
-                description = "History",
-                expanded = historyMenu,
-                onClick = { historyMenu = true },
-                onDismiss = { historyMenu = false },
-            ) {
-                DropdownMenuItem(
-                    text = { Text("Undo") },
-                    enabled = state.canUndo,
-                    onClick = {
-                        historyMenu = false
-                        viewModel.undo()
-                    },
-                )
-                DropdownMenuItem(
-                    text = { Text("Redo") },
-                    enabled = state.canRedo,
-                    onClick = {
-                        historyMenu = false
-                        viewModel.redo()
-                    },
-                )
-            }
-            ActionButton("⇄", "Switch sides", viewModel::switchSides)
-            ActionButton("⟳", "Rotation setup", viewModel::showRotationPlaceholder)
-            IconButton(
-                onClick = { viewModel.navigate(AppScreen.SETTINGS) },
-                modifier = Modifier.size(40.dp),
-            ) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_settings),
-                    contentDescription = "Settings",
-                    tint = Color.White,
-                )
+            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+                ActionMenuButton(
+                    symbol = "\u25F4",
+                    description = "Timeline",
+                    expanded = timelineMenu,
+                    onClick = { timelineMenu = true },
+                    onDismiss = { timelineMenu = false },
+                ) {
+                    DropdownMenuItem(text = { Text("History") }, onClick = {
+                        timelineMenu = false
+                        viewModel.navigate(AppScreen.HISTORY)
+                    })
+                    DropdownMenuItem(text = { Text("Previous matches") }, onClick = {
+                        timelineMenu = false
+                        viewModel.navigate(AppScreen.PREVIOUS_MATCHES)
+                    })
+                }
+                ActionButton("\u25A3", "Display placeholder", viewModel::showRotationPlaceholder)
+                ActionButton("\u2605", "Favorite placeholder", viewModel::showRotationPlaceholder)
+                IconButton(
+                    onClick = { viewModel.navigate(AppScreen.SETTINGS) },
+                    modifier = Modifier.size(40.dp),
+                ) {
+                    Icon(
+                        painter = painterResource(R.drawable.ic_settings),
+                        contentDescription = "Settings",
+                        tint = Color.White,
+                    )
+                }
             }
         }
     }
 
     Column(modifier, horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
         Sets()
-        Spacer(Modifier.height(24.dp))
+        Spacer(Modifier.height(16.dp))
         Actions()
     }
 }
@@ -608,6 +677,193 @@ private fun ActionMenuButton(
         DropdownMenu(expanded = expanded, onDismissRequest = onDismiss, content = menuContent)
     }
 }
+
+@Composable
+private fun MatchHistoryScreen(
+    title: String,
+    timeline: MatchTimeline,
+    currentScore: Pair<Int, Int>?,
+    onBack: () -> Unit,
+) {
+    Column(Modifier.fillMaxSize().padding(24.dp)) {
+        ScreenHeader(title, onBack)
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+            horizontalArrangement = Arrangement.Center,
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
+            Text(timeline.team1Name, color = HomeBlue, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+            MatchSetBox(timeline.team1Sets, HomeBlue)
+            Text("-", color = MutedText, fontSize = 28.sp, modifier = Modifier.padding(horizontal = 8.dp))
+            MatchSetBox(timeline.team2Sets, AwayRed)
+            Text(timeline.team2Name, color = AwayRed, fontSize = 24.sp, fontWeight = FontWeight.Bold)
+        }
+        Text(
+            formatMatchTime(timeline.startedAt),
+            color = MutedText,
+            modifier = Modifier.padding(bottom = 12.dp),
+        )
+        Card(
+            modifier = Modifier.fillMaxSize(),
+            colors = CardDefaults.cardColors(containerColor = PanelBackground),
+            shape = RoundedCornerShape(16.dp),
+        ) {
+            LazyColumn(
+                modifier = Modifier.fillMaxSize().padding(18.dp),
+                verticalArrangement = Arrangement.spacedBy(18.dp),
+            ) {
+                items(timeline.completedSets, key = { it.number }) { set ->
+                    SetHistoryRow(
+                        number = set.number,
+                        team1Score = set.team1Score,
+                        team2Score = set.team2Score,
+                        events = set.events,
+                    )
+                }
+                if (currentScore != null) {
+                    item {
+                        SetHistoryRow(
+                            number = timeline.completedSets.size + 1,
+                            team1Score = currentScore.first,
+                            team2Score = currentScore.second,
+                            events = timeline.currentSetEvents,
+                        )
+                    }
+                }
+                if (timeline.completedSets.isEmpty() && currentScore == null) {
+                    item {
+                        Text(
+                            "No recorded sets",
+                            color = MutedText,
+                            modifier = Modifier.fillMaxWidth().padding(32.dp),
+                            textAlign = TextAlign.Center,
+                        )
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PreviousMatchesScreen(
+    matches: List<MatchTimeline>,
+    onBack: () -> Unit,
+    onOpen: (Long) -> Unit,
+) {
+    Column(Modifier.fillMaxSize().padding(24.dp)) {
+        ScreenHeader("Previous matches", onBack)
+        Card(
+            modifier = Modifier.fillMaxSize().padding(top = 16.dp),
+            colors = CardDefaults.cardColors(containerColor = PanelBackground),
+            shape = RoundedCornerShape(16.dp),
+        ) {
+            if (matches.isEmpty()) {
+                Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                    Text("No previous matches yet", color = MutedText)
+                }
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize().padding(14.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp),
+                ) {
+                    items(matches, key = { it.id }) { match ->
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .clickable { onOpen(match.id) }
+                                .padding(horizontal = 16.dp, vertical = 14.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                        ) {
+                            Column(Modifier.width(150.dp)) {
+                                Text(formatMatchDate(match.startedAt), color = Color.White)
+                                Text(formatMatchTimeOnly(match.startedAt), color = MutedText, fontSize = 13.sp)
+                            }
+                            Row(
+                                modifier = Modifier.weight(1f),
+                                horizontalArrangement = Arrangement.Center,
+                                verticalAlignment = Alignment.CenterVertically,
+                            ) {
+                                Text(match.team1Name, color = HomeBlue, fontWeight = FontWeight.Bold)
+                                MatchSetBox(match.team1Sets, HomeBlue)
+                                Text("-", color = MutedText, modifier = Modifier.padding(horizontal = 6.dp))
+                                MatchSetBox(match.team2Sets, AwayRed)
+                                Text(match.team2Name, color = AwayRed, fontWeight = FontWeight.Bold)
+                            }
+                            Text("\u203A", color = Color.White, fontSize = 30.sp)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun ScreenHeader(title: String, onBack: () -> Unit) {
+    Row(verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = onBack) {
+            Text("\u2039", color = HomeBlue, fontSize = 38.sp)
+        }
+        Text(title.uppercase(), color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+    }
+}
+
+@Composable
+private fun MatchSetBox(value: Int, color: Color) {
+    Surface(
+        modifier = Modifier.padding(horizontal = 10.dp).size(width = 54.dp, height = 48.dp),
+        color = color,
+        shape = RoundedCornerShape(7.dp),
+    ) {
+        Box(contentAlignment = Alignment.Center) {
+            Text(value.toString(), color = Color.White, fontSize = 26.sp, fontFamily = FontFamily.Monospace)
+        }
+    }
+}
+
+@Composable
+private fun SetHistoryRow(
+    number: Int,
+    team1Score: Int,
+    team2Score: Int,
+    events: List<ScoreSnapshot>,
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("Set $number", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            MatchSetBox(team1Score, HomeBlue)
+            Text("-", color = MutedText, fontSize = 24.sp)
+            MatchSetBox(team2Score, AwayRed)
+            LazyRow(
+                modifier = Modifier.weight(1f).padding(start = 14.dp),
+                horizontalArrangement = Arrangement.spacedBy(6.dp),
+            ) {
+                items(events) { event ->
+                    Surface(color = Color(0xFF303438), shape = RoundedCornerShape(6.dp)) {
+                        Row(Modifier.padding(horizontal = 8.dp, vertical = 6.dp)) {
+                            Text(event.team1Score.toString(), color = HomeBlue, fontWeight = FontWeight.Bold)
+                            Text("-", color = MutedText, modifier = Modifier.padding(horizontal = 3.dp))
+                            Text(event.team2Score.toString(), color = AwayRed, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            }
+        }
+    }
+}
+
+private val matchDateFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("M/d/yyyy")
+private val matchTimeFormatter: DateTimeFormatter = DateTimeFormatter.ofPattern("h:mm a")
+
+private fun formatMatchDate(timestamp: Long): String =
+    Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()).format(matchDateFormatter)
+
+private fun formatMatchTimeOnly(timestamp: Long): String =
+    Instant.ofEpochMilli(timestamp).atZone(ZoneId.systemDefault()).format(matchTimeFormatter)
+
+private fun formatMatchTime(timestamp: Long): String =
+    "${formatMatchDate(timestamp)}  ${formatMatchTimeOnly(timestamp)}"
 
 @Composable
 private fun SettingsScreen(
@@ -793,24 +1049,7 @@ private fun TutorialScreen(onComplete: () -> Unit) {
                             )
                         }
                     }
-                    Spacer(Modifier.height(18.dp))
-                    Button(
-                        onClick = {
-                            if (pagerState.currentPage < pages.lastIndex) {
-                                scope.launch {
-                                    pagerState.animateScrollToPage(pagerState.currentPage + 1)
-                                }
-                            } else {
-                                onComplete()
-                            }
-                        },
-                        modifier = Modifier.width(190.dp),
-                    ) {
-                        Text(
-                            if (pagerState.currentPage < pages.lastIndex) "Continue" else "Start scoring",
-                            color = Color.White,
-                        )
-                    }
+                    Spacer(Modifier.height(12.dp))
                 }
             }
         }
@@ -920,6 +1159,7 @@ private fun EditNumberDialog(
                     else -> when (onSave(number)) {
                         ScoreValidationError.ABOVE_HARD_CAP -> "Score exceeds the hard cap"
                         ScoreValidationError.NEGATIVE -> "Value cannot be negative"
+                        ScoreValidationError.TIMEOUT_ACTIVE -> "Score changes are disabled during a timeout"
                         null -> null
                     }
                 }

@@ -8,12 +8,15 @@ import com.hsiaower.scoreboard.data.SettingsRepository
 import com.hsiaower.scoreboard.model.AppScreen
 import com.hsiaower.scoreboard.model.GameSettings
 import com.hsiaower.scoreboard.model.InputType
+import com.hsiaower.scoreboard.model.MatchTimeline
 import com.hsiaower.scoreboard.model.MatchState
 import com.hsiaower.scoreboard.model.RemoteAction
 import com.hsiaower.scoreboard.model.RemoteMapping
 import com.hsiaower.scoreboard.model.ScoreRules
+import com.hsiaower.scoreboard.model.ScoreSnapshot
 import com.hsiaower.scoreboard.model.ScoreValidationError
 import com.hsiaower.scoreboard.model.ScoreboardState
+import com.hsiaower.scoreboard.model.SetTimeline
 import com.hsiaower.scoreboard.model.Team
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -55,6 +58,26 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
             }
         }
         viewModelScope.launch {
+            repository.currentTimeline.collect { timeline ->
+                _state.update { current ->
+                    val normalized = if (!timeline.hasActivity) {
+                        timeline.copy(
+                            team1Name = current.settings.team1Name,
+                            team2Name = current.settings.team2Name,
+                        )
+                    } else {
+                        timeline
+                    }
+                    current.copy(currentTimeline = normalized)
+                }
+            }
+        }
+        viewModelScope.launch {
+            repository.previousMatches.collect { matches ->
+                _state.update { it.copy(previousMatches = matches) }
+            }
+        }
+        viewModelScope.launch {
             while (true) {
                 delay(1_000)
                 val match = _state.value.match
@@ -71,6 +94,7 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     fun adjustScore(team: Team, delta: Int) {
+        if (_state.value.match.timerSecondsRemaining > 0) return
         updateMatch { current ->
             val scores = ScoreRules.adjust(
                 team = team,
@@ -79,12 +103,15 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
                 team2Score = current.team2Score,
                 settings = _state.value.settings,
             )
-            current.copy(team1Score = scores.team1, team2Score = scores.team2)
+            val updated = current.copy(team1Score = scores.team1, team2Score = scores.team2)
+            if (updated != current) recordScore(updated.team1Score, updated.team2Score)
+            updated
         }
     }
 
     fun setScore(team: Team, newScore: Int): ScoreValidationError? {
         val current = _state.value
+        if (current.match.timerSecondsRemaining > 0) return ScoreValidationError.TIMEOUT_ACTIVE
         val validationError = ScoreRules.validateManualScore(
             team = team,
             newScore = newScore,
@@ -102,17 +129,28 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
                 team2Score = match.team2Score,
                 settings = _state.value.settings,
             )
-            match.copy(team1Score = scores.team1, team2Score = scores.team2)
+            val updated = match.copy(team1Score = scores.team1, team2Score = scores.team2)
+            if (updated != match) recordScore(updated.team1Score, updated.team2Score)
+            updated
         }
         return null
     }
 
     fun setSets(team: Team, value: Int) {
         updateMatch { match ->
-            when (team) {
+            val updated = when (team) {
                 Team.TEAM_1 -> match.copy(team1Sets = value.coerceIn(0, 99))
                 Team.TEAM_2 -> match.copy(team2Sets = value.coerceIn(0, 99))
             }
+            if (updated != match) {
+                saveTimeline(
+                    _state.value.currentTimeline.copy(
+                        team1Sets = updated.team1Sets,
+                        team2Sets = updated.team2Sets,
+                    ),
+                )
+            }
+            updated
         }
     }
 
@@ -120,6 +158,7 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
         val state = _state.value
         if (state.winner != team || state.matchWinner != null) return
 
+        val finalMatch = state.match
         updateMatch { match ->
             val updatedSets = when (team) {
                 Team.TEAM_1 -> match.copy(team1Sets = match.team1Sets + 1)
@@ -134,6 +173,34 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
                 timerRunning = false,
             )
         }
+        val updatedState = _state.value
+        val timeline = state.currentTimeline
+        val finalEvents = timeline.currentSetEvents.let { events ->
+            if (events.lastOrNull()?.let {
+                    it.team1Score == finalMatch.team1Score && it.team2Score == finalMatch.team2Score
+                } == true
+            ) {
+                events
+            } else {
+                events + ScoreSnapshot(finalMatch.team1Score, finalMatch.team2Score)
+            }
+        }
+        saveTimeline(
+            timeline.copy(
+                team1Name = state.settings.team1Name,
+                team2Name = state.settings.team2Name,
+                team1Sets = updatedState.match.team1Sets,
+                team2Sets = updatedState.match.team2Sets,
+                completedSets = timeline.completedSets + SetTimeline(
+                    number = timeline.completedSets.size + 1,
+                    team1Score = finalMatch.team1Score,
+                    team2Score = finalMatch.team2Score,
+                    winner = team,
+                    events = finalEvents,
+                ),
+                currentSetEvents = listOf(ScoreSnapshot(0, 0)),
+            ),
+        )
     }
 
     fun setTimeouts(team: Team, value: Int) {
@@ -181,16 +248,19 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
 
     fun clearScore() {
         updateMatch {
-            it.copy(
+            val updated = it.copy(
                 team1Score = 0,
                 team2Score = 0,
                 timerSecondsRemaining = 0,
                 timerRunning = false,
             )
+            if (updated != it) recordScore(0, 0)
+            updated
         }
     }
 
     fun newMatch() {
+        archiveCurrentMatch()
         undoStack.clear()
         redoStack.clear()
         val settings = _state.value.settings
@@ -199,6 +269,12 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
                 team1Timeouts = settings.timeoutsPerSet,
                 team2Timeouts = settings.timeoutsPerSet,
                 team1OnLeft = _state.value.match.team1OnLeft,
+            ),
+        )
+        saveTimeline(
+            MatchTimeline(
+                team1Name = settings.team1Name,
+                team2Name = settings.team2Name,
             ),
         )
     }
@@ -211,12 +287,14 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
         val previous = undoStack.removeLastOrNull() ?: return
         redoStack.addLast(_state.value.match)
         setMatch(previous)
+        recordScore(previous.team1Score, previous.team2Score)
     }
 
     fun redo() {
         val next = redoStack.removeLastOrNull() ?: return
         undoStack.addLast(_state.value.match)
         setMatch(next)
+        recordScore(next.team1Score, next.team2Score)
     }
 
     fun showRotationPlaceholder() {
@@ -229,6 +307,15 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
 
     fun navigate(screen: AppScreen) {
         _state.update { it.copy(currentScreen = screen, capturingAction = null) }
+    }
+
+    fun openMatchHistory(matchId: Long) {
+        _state.update {
+            it.copy(
+                selectedMatchId = matchId,
+                currentScreen = AppScreen.MATCH_HISTORY,
+            )
+        }
     }
 
     fun saveSettings(settings: GameSettings) {
@@ -256,6 +343,12 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
             Team.TEAM_2 -> _state.value.settings.copy(team2Name = normalizedName)
         }
         _state.update { it.copy(settings = updatedSettings) }
+        saveTimeline(
+            _state.value.currentTimeline.copy(
+                team1Name = updatedSettings.team1Name,
+                team2Name = updatedSettings.team2Name,
+            ),
+        )
         viewModelScope.launch { repository.saveGameSettings(updatedSettings) }
     }
 
@@ -325,5 +418,39 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
             )
         }
         viewModelScope.launch { repository.saveMatchState(match) }
+    }
+
+    private fun recordScore(team1Score: Int, team2Score: Int) {
+        val timeline = _state.value.currentTimeline
+        val last = timeline.currentSetEvents.lastOrNull()
+        if (last?.team1Score == team1Score && last.team2Score == team2Score) return
+        saveTimeline(
+            timeline.copy(
+                team1Name = _state.value.settings.team1Name,
+                team2Name = _state.value.settings.team2Name,
+                currentSetEvents = timeline.currentSetEvents + ScoreSnapshot(team1Score, team2Score),
+            ),
+        )
+    }
+
+    private fun archiveCurrentMatch() {
+        val state = _state.value
+        val timeline = state.currentTimeline
+        if (!timeline.hasActivity) return
+        val archived = timeline.copy(
+            endedAt = System.currentTimeMillis(),
+            team1Name = state.settings.team1Name,
+            team2Name = state.settings.team2Name,
+            team1Sets = state.match.team1Sets,
+            team2Sets = state.match.team2Sets,
+        )
+        val matches = listOf(archived) + state.previousMatches.filterNot { it.id == archived.id }
+        _state.update { it.copy(previousMatches = matches) }
+        viewModelScope.launch { repository.savePreviousMatches(matches) }
+    }
+
+    private fun saveTimeline(timeline: MatchTimeline) {
+        _state.update { it.copy(currentTimeline = timeline) }
+        viewModelScope.launch { repository.saveCurrentTimeline(timeline) }
     }
 }
