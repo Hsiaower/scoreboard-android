@@ -328,6 +328,7 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
 
     fun navigate(screen: AppScreen) {
         cancelInputCapture()
+        releaseRemoteInputs()
         _state.update { it.copy(currentScreen = screen) }
     }
 
@@ -412,6 +413,7 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
         if (_state.value.capturingAction != null) {
             return captureRemoteInput(event)
         }
+        if (_state.value.currentScreen != AppScreen.SCOREBOARD) return false
 
         val relevantMappings = _state.value.remoteMappings.filterValues {
             event.keyCode in it.keyCodes
@@ -565,6 +567,7 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     private fun performRemoteAction(action: RemoteAction) {
+        if (_state.value.currentScreen != AppScreen.SCOREBOARD) return
         val team1OnLeft = _state.value.match.team1OnLeft
         val leftTeam = if (team1OnLeft) Team.TEAM_1 else Team.TEAM_2
         val rightTeam = if (team1OnLeft) Team.TEAM_2 else Team.TEAM_1

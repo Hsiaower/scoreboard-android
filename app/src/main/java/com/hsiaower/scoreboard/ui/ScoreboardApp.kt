@@ -248,8 +248,8 @@ private fun ScoreboardScreen(state: ScoreboardState, viewModel: ScoreboardViewMo
         state.winner == Team.TEAM_2,
         state.matchWinner == Team.TEAM_2,
     )
-    val left = if (state.match.team1OnLeft) team1 else team2
-    val right = if (state.match.team1OnLeft) team2 else team1
+    val left = (if (state.match.team1OnLeft) team1 else team2).copy(color = HomeBlue)
+    val right = (if (state.match.team1OnLeft) team2 else team1).copy(color = AwayRed)
 
     Box(Modifier.fillMaxSize().background(AppBackground)) {
         LandscapeScoreboard(
