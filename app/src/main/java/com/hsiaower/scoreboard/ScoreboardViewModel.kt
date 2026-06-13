@@ -116,6 +116,26 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
+    fun awardSet(team: Team) {
+        val state = _state.value
+        if (state.winner != team || state.matchWinner != null) return
+
+        updateMatch { match ->
+            val updatedSets = when (team) {
+                Team.TEAM_1 -> match.copy(team1Sets = match.team1Sets + 1)
+                Team.TEAM_2 -> match.copy(team2Sets = match.team2Sets + 1)
+            }
+            updatedSets.copy(
+                team1Score = 0,
+                team2Score = 0,
+                team1Timeouts = state.settings.timeoutsPerSet,
+                team2Timeouts = state.settings.timeoutsPerSet,
+                timerSecondsRemaining = 0,
+                timerRunning = false,
+            )
+        }
+    }
+
     fun setTimeouts(team: Team, value: Int) {
         updateMatch { match ->
             when (team) {

@@ -141,7 +141,7 @@ private fun ScoreboardScreen(state: ScoreboardState, viewModel: ScoreboardViewMo
         state.match.team1Timeouts,
         HomeBlue,
         state.winner == Team.TEAM_1,
-        state.match.team1Sets >= state.settings.setsToWin,
+        state.matchWinner == Team.TEAM_1,
     )
     val team2 = TeamDisplay(
         Team.TEAM_2,
@@ -151,7 +151,7 @@ private fun ScoreboardScreen(state: ScoreboardState, viewModel: ScoreboardViewMo
         state.match.team2Timeouts,
         AwayRed,
         state.winner == Team.TEAM_2,
-        state.match.team2Sets >= state.settings.setsToWin,
+        state.matchWinner == Team.TEAM_2,
     )
     val left = if (state.match.team1OnLeft) team1 else team2
     val right = if (state.match.team1OnLeft) team2 else team1
@@ -226,6 +226,25 @@ private fun ScoreboardScreen(state: ScoreboardState, viewModel: ScoreboardViewMo
                 viewModel.setTimeouts(team, it)
                 editingTimeouts = null
                 null
+            },
+        )
+    }
+    state.matchWinner?.let { team ->
+        val winnerName = if (team == Team.TEAM_1) state.settings.team1Name else state.settings.team2Name
+        AlertDialog(
+            onDismissRequest = {},
+            title = { Text("$winnerName wins the match!") },
+            text = {
+                Text(
+                    "${state.match.team1Sets} - ${state.match.team2Sets} sets",
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth(),
+                )
+            },
+            confirmButton = {
+                Button(onClick = viewModel::newMatch) {
+                    Text("New Match")
+                }
             },
         )
     }
@@ -446,8 +465,18 @@ private fun CenterControls(
     @Composable
     fun Sets() {
         Row(horizontalArrangement = Arrangement.spacedBy(14.dp)) {
-            SetBox(left, onEditSets)
-            SetBox(right, onEditSets)
+            SetBox(
+                team = left,
+                canAward = state.winner == left.team && state.matchWinner == null,
+                onAwardSet = viewModel::awardSet,
+                onEditSets = onEditSets,
+            )
+            SetBox(
+                team = right,
+                canAward = state.winner == right.team && state.matchWinner == null,
+                onAwardSet = viewModel::awardSet,
+                onEditSets = onEditSets,
+            )
         }
     }
 
@@ -517,12 +546,27 @@ private fun CenterControls(
 }
 
 @Composable
-private fun SetBox(team: TeamDisplay, onEditSets: (Team) -> Unit) {
+private fun SetBox(
+    team: TeamDisplay,
+    canAward: Boolean,
+    onAwardSet: (Team) -> Unit,
+    onEditSets: (Team) -> Unit,
+) {
     Surface(
         modifier = Modifier
             .size(72.dp)
-            .pointerInput(team.sets) {
-                detectTapGestures(onLongPress = { onEditSets(team.team) })
+            .then(
+                if (canAward) {
+                    Modifier.border(3.dp, WinnerGold, RoundedCornerShape(12.dp))
+                } else {
+                    Modifier
+                },
+            )
+            .pointerInput(team.sets, canAward) {
+                detectTapGestures(
+                    onTap = { if (canAward) onAwardSet(team.team) },
+                    onLongPress = { onEditSets(team.team) },
+                )
             },
         color = team.color,
         shape = RoundedCornerShape(12.dp),

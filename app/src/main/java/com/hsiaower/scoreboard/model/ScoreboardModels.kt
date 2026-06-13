@@ -64,6 +64,12 @@ data class ScoreboardState(
     val team2Score: Int get() = match.team2Score
     val winner: Team?
         get() = WinnerRules.determineWinner(team1Score, team2Score, settings)
+    val matchWinner: Team?
+        get() = MatchRules.determineWinner(
+            team1Sets = match.team1Sets,
+            team2Sets = match.team2Sets,
+            setsToWin = settings.setsToWin,
+        )
 }
 
 enum class AppScreen {
