@@ -158,12 +158,6 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
         }
     }
 
-    fun resetTimer() {
-        updateMatch(recordHistory = false) {
-            it.copy(timerSecondsRemaining = 0, timerRunning = false)
-        }
-    }
-
     fun clearScore() {
         updateMatch {
             it.copy(

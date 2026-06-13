@@ -247,9 +247,17 @@ private fun LandscapeScoreboard(
             modifier = Modifier.fillMaxWidth().height(86.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TeamHeader(left, Modifier.weight(1f), onEditName, onEditTimeouts, viewModel::startTimeout)
-            TimerPanel(state, Modifier.width(270.dp), viewModel::toggleTimer, viewModel::resetTimer)
-            TeamHeader(right, Modifier.weight(1f), onEditName, onEditTimeouts, viewModel::startTimeout)
+            TeamHeader(left, Modifier.weight(1f), onEditName)
+            TimerCluster(
+                left = left,
+                right = right,
+                state = state,
+                modifier = Modifier.width(330.dp),
+                onToggleTimer = viewModel::toggleTimer,
+                onStartTimeout = viewModel::startTimeout,
+                onEditTimeouts = onEditTimeouts,
+            )
+            TeamHeader(right, Modifier.weight(1f), onEditName)
         }
         Row(
             modifier = Modifier.fillMaxSize().padding(top = 8.dp),
@@ -287,55 +295,41 @@ private fun TeamHeader(
     team: TeamDisplay,
     modifier: Modifier,
     onEditName: (Team) -> Unit,
-    onEditTimeouts: (Team) -> Unit,
-    onStartTimeout: (Team) -> Unit,
 ) {
-    Row(modifier, verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
-        Text(
-            text = team.name,
-            color = team.color,
-            fontSize = 30.sp,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
-            textAlign = TextAlign.Center,
-            modifier = Modifier.weight(1f).pointerInput(team.name) {
-                detectTapGestures(onLongPress = { onEditName(team.team) })
-            },
-        )
-        Column(
-            modifier = Modifier
-                .padding(horizontal = 8.dp)
-                .pointerInput(team.timeouts) {
-                    detectTapGestures(
-                        onTap = { onStartTimeout(team.team) },
-                        onLongPress = { onEditTimeouts(team.team) },
-                    )
-                },
-            horizontalAlignment = Alignment.CenterHorizontally,
-        ) {
-            Text("TIMEOUTS", color = MutedText, fontSize = 10.sp)
-            Text("◷ ${team.timeouts}", color = team.color, fontSize = 22.sp, fontWeight = FontWeight.Bold)
-        }
-    }
+    Text(
+        text = team.name,
+        color = team.color,
+        fontSize = 30.sp,
+        fontWeight = FontWeight.Bold,
+        maxLines = 1,
+        overflow = TextOverflow.Ellipsis,
+        textAlign = TextAlign.Center,
+        modifier = modifier.pointerInput(team.name) {
+            detectTapGestures(onLongPress = { onEditName(team.team) })
+        },
+    )
 }
 
 @Composable
-private fun TimerPanel(
+private fun TimerCluster(
+    left: TeamDisplay,
+    right: TeamDisplay,
     state: ScoreboardState,
     modifier: Modifier,
-    onToggle: () -> Unit,
-    onReset: () -> Unit,
+    onToggleTimer: () -> Unit,
+    onStartTimeout: (Team) -> Unit,
+    onEditTimeouts: (Team) -> Unit,
 ) {
     val seconds = state.match.timerSecondsRemaining
     val display = "%02d:%02d".format(seconds / 60, seconds % 60)
     Row(
         modifier = modifier,
         verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.Center,
+        horizontalArrangement = Arrangement.SpaceBetween,
     ) {
+        TimeoutControl(left, onStartTimeout, onEditTimeouts)
         Surface(
-            modifier = Modifier.clickable(onClick = onToggle),
+            modifier = Modifier.width(170.dp).clickable(onClick = onToggleTimer),
             shape = RoundedCornerShape(8.dp),
             color = PanelBackground,
         ) {
@@ -345,10 +339,38 @@ private fun TimerPanel(
                 fontFamily = FontFamily.Monospace,
                 fontSize = 38.sp,
                 fontWeight = FontWeight.Bold,
-                modifier = Modifier.padding(horizontal = 18.dp, vertical = 8.dp),
+                textAlign = TextAlign.Center,
+                modifier = Modifier.fillMaxWidth().padding(vertical = 8.dp),
             )
         }
-        TextButton(onClick = onReset) { Text("↻", color = MutedText, fontSize = 24.sp) }
+        TimeoutControl(right, onStartTimeout, onEditTimeouts)
+    }
+}
+
+@Composable
+private fun TimeoutControl(
+    team: TeamDisplay,
+    onStartTimeout: (Team) -> Unit,
+    onEditTimeouts: (Team) -> Unit,
+) {
+    Column(
+        modifier = Modifier
+            .width(62.dp)
+            .pointerInput(team.timeouts) {
+                detectTapGestures(
+                    onTap = { onStartTimeout(team.team) },
+                    onLongPress = { onEditTimeouts(team.team) },
+                )
+            },
+        horizontalAlignment = Alignment.CenterHorizontally,
+    ) {
+        Text("TIMEOUT", color = MutedText, fontSize = 9.sp)
+        Text(
+            text = "◷${team.timeouts}",
+            color = team.color,
+            fontSize = 22.sp,
+            fontWeight = FontWeight.Bold,
+        )
     }
 }
 
