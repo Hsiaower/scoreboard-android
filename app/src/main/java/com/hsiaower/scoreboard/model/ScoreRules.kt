@@ -23,6 +23,9 @@ object ScoreRules {
         if (delta > 0 && currentWinner != null) {
             return Scores(team1Score, team2Score)
         }
+        if (delta < 0 && currentWinner != null && currentWinner != team) {
+            return Scores(team1Score, team2Score)
+        }
 
         val currentScore = if (team == Team.TEAM_1) team1Score else team2Score
         var updatedScore = (currentScore + delta).coerceAtLeast(0)

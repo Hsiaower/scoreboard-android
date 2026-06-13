@@ -55,12 +55,24 @@ class ScoreRulesTest {
     }
 
     @Test
-    fun `non winner can still decrease after victory`() {
+    fun `non winner cannot decrease after victory`() {
         val settings = GameSettings(winningScore = 25, winByTwo = true)
 
         assertEquals(
-            Scores(26, 23),
+            Scores(26, 24),
             ScoreRules.adjust(Team.TEAM_2, -1, 26, 24, settings),
+        )
+    }
+
+    @Test
+    fun `reverting winner point resumes normal scoring`() {
+        val settings = GameSettings(winningScore = 25, winByTwo = true)
+        val reverted = ScoreRules.adjust(Team.TEAM_1, -1, 26, 24, settings)
+
+        assertEquals(Scores(25, 24), reverted)
+        assertEquals(
+            Scores(25, 23),
+            ScoreRules.adjust(Team.TEAM_2, -1, reverted.team1, reverted.team2, settings),
         )
     }
 

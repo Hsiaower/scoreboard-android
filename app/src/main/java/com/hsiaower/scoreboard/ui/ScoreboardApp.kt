@@ -94,6 +94,8 @@ private val HomeBlue = Color(0xFF2196F3)
 private val AwayRed = Color(0xFFF44336)
 private val MutedText = Color(0xFFB8BDC3)
 private val WinnerGold = Color(0xFFFFD54F)
+private val ControlCellSize = 44.dp
+private val ControlGridWidth = 194.dp
 
 private data class TeamDisplay(
     val team: Team,
@@ -534,8 +536,15 @@ private fun CenterControls(
 
     @Composable
     fun Actions() {
-        Column(horizontalAlignment = Alignment.CenterHorizontally) {
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+        Column(
+            modifier = Modifier.width(ControlGridWidth),
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 ActionMenuButton(
                     symbol = "+",
                     description = "Match actions",
@@ -579,7 +588,11 @@ private fun CenterControls(
                 ActionButton("\u21C4", "Switch sides", viewModel::switchSides)
                 ActionButton("\u27F3", "Rotation setup", viewModel::showRotationPlaceholder)
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween,
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
                 IconActionMenuButton(
                     iconRes = R.drawable.ic_timeline_chart,
                     description = "Timeline",
@@ -600,7 +613,7 @@ private fun CenterControls(
                 ActionButton("\u2605", "Favorite placeholder", viewModel::showRotationPlaceholder)
                 IconButton(
                     onClick = { viewModel.navigate(AppScreen.SETTINGS) },
-                    modifier = Modifier.size(40.dp),
+                    modifier = Modifier.size(ControlCellSize),
                 ) {
                     Icon(
                         painter = painterResource(R.drawable.ic_settings),
@@ -659,7 +672,7 @@ private fun SetBox(
 
 @Composable
 private fun ActionButton(symbol: String, description: String, onClick: () -> Unit) {
-    IconButton(onClick = onClick, modifier = Modifier.size(40.dp)) {
+    IconButton(onClick = onClick, modifier = Modifier.size(ControlCellSize)) {
         Text(symbol, color = Color.White, fontSize = 30.sp)
     }
 }
@@ -673,7 +686,7 @@ private fun ActionMenuButton(
     onDismiss: () -> Unit,
     menuContent: @Composable ColumnScope.() -> Unit,
 ) {
-    Box {
+    Box(Modifier.size(ControlCellSize)) {
         ActionButton(symbol, description, onClick)
         DropdownMenu(expanded = expanded, onDismissRequest = onDismiss, content = menuContent)
     }
@@ -688,8 +701,8 @@ private fun IconActionMenuButton(
     onDismiss: () -> Unit,
     menuContent: @Composable ColumnScope.() -> Unit,
 ) {
-    Box {
-        IconButton(onClick = onClick, modifier = Modifier.size(40.dp)) {
+    Box(Modifier.size(ControlCellSize)) {
+        IconButton(onClick = onClick, modifier = Modifier.size(ControlCellSize)) {
             Icon(
                 painter = painterResource(iconRes),
                 contentDescription = description,
