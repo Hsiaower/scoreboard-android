@@ -393,9 +393,9 @@ private fun TeamZone(
                         WinnerCrown(
                             teamName = teamName,
                             crownSize = crownSize,
-                            crownRotation = -15f,
+                            crownRotation = 15f,
                             modifier = Modifier
-                                .align(Alignment.TopEnd)
+                                .align(Alignment.TopStart)
                                 .zIndex(2f),
                         )
                     }
