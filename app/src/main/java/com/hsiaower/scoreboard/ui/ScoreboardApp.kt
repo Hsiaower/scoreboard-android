@@ -1,5 +1,7 @@
 package com.hsiaower.scoreboard.ui
 
+import android.content.pm.ActivityInfo
+import androidx.activity.compose.LocalActivity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -123,6 +125,16 @@ private data class HistoryLaneEvent(
 @Composable
 fun ScoreboardApp(viewModel: ScoreboardViewModel) {
     val state by viewModel.state.collectAsStateWithLifecycle()
+    val activity = LocalActivity.current
+    LaunchedEffect(state.currentScreen) {
+        activity?.requestedOrientation = when (state.currentScreen) {
+            AppScreen.SETTINGS,
+            AppScreen.REMOTE_MAPPING,
+            -> ActivityInfo.SCREEN_ORIENTATION_PORTRAIT
+
+            else -> ActivityInfo.SCREEN_ORIENTATION_LANDSCAPE
+        }
+    }
     MaterialTheme(
         colorScheme = darkColorScheme(
             primary = HomeBlue,
