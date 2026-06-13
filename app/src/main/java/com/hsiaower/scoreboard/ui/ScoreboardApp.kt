@@ -5,6 +5,8 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
+import androidx.compose.foundation.pager.HorizontalPager
+import androidx.compose.foundation.pager.rememberPagerState
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
@@ -47,6 +49,7 @@ import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -71,6 +74,7 @@ import com.hsiaower.scoreboard.model.RemoteAction
 import com.hsiaower.scoreboard.model.ScoreValidationError
 import com.hsiaower.scoreboard.model.ScoreboardState
 import com.hsiaower.scoreboard.model.Team
+import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.min
 
@@ -698,32 +702,115 @@ private fun SettingCheck(label: String, checked: Boolean, onChecked: (Boolean) -
 
 @Composable
 private fun TutorialScreen(onComplete: () -> Unit) {
-    var page by remember { mutableIntStateOf(0) }
     val pages = listOf(
-        Triple("Score quickly", "Tap a score card to add a point.", "＋1"),
-        Triple("Correct mistakes", "Swipe down to subtract. Long press names, scores, sets, or timeouts to edit.", "↕"),
-        Triple("Run the match", "Use switch sides, undo/redo, timeout timer, and settings from the center controls.", "⇄"),
+        Triple("Score quickly", "Tap a score card to add a point.", "+1"),
+        Triple(
+            "Correct mistakes",
+            "Swipe down to subtract. Long press names, scores, sets, or timeouts to edit.",
+            "\u2195",
+        ),
+        Triple(
+            "Run the match",
+            "Use switch sides, undo/redo, timeout timer, and settings from the center controls.",
+            "\u21C4",
+        ),
     )
-    val current = pages[page]
-    Box(Modifier.fillMaxSize().padding(32.dp), contentAlignment = Alignment.Center) {
+    val pagerState = rememberPagerState(pageCount = { pages.size })
+    val scope = rememberCoroutineScope()
+
+    Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
         Card(
-            modifier = Modifier.widthIn(max = 560.dp),
+            modifier = Modifier.fillMaxWidth(0.72f).height(440.dp).widthIn(max = 760.dp),
             colors = CardDefaults.cardColors(containerColor = PanelBackground),
             shape = RoundedCornerShape(24.dp),
         ) {
-            Column(
-                Modifier.padding(32.dp),
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(20.dp),
-            ) {
-                Text(current.third, color = HomeBlue, fontSize = 72.sp)
-                Text(current.first, color = Color.White, fontSize = 30.sp, fontWeight = FontWeight.Bold)
-                Text(current.second, color = MutedText, fontSize = 18.sp, textAlign = TextAlign.Center)
-                Text("${page + 1} / ${pages.size}", color = MutedText)
-                Button(onClick = {
-                    if (page < pages.lastIndex) page++ else onComplete()
-                }) {
-                    Text(if (page < pages.lastIndex) "Continue" else "Start scoring")
+            Box(Modifier.fillMaxSize()) {
+                IconButton(
+                    onClick = onComplete,
+                    modifier = Modifier.align(Alignment.TopEnd).padding(12.dp),
+                ) {
+                    Text(
+                        text = "\u00D7",
+                        color = Color.White,
+                        fontSize = 30.sp,
+                        fontWeight = FontWeight.Light,
+                    )
+                }
+
+                Column(
+                    modifier = Modifier.fillMaxSize().padding(horizontal = 32.dp, vertical = 22.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                ) {
+                    HorizontalPager(
+                        state = pagerState,
+                        modifier = Modifier.weight(1f).fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) { page ->
+                        val content = pages[page]
+                        Column(
+                            modifier = Modifier.fillMaxSize().padding(horizontal = 36.dp),
+                            horizontalAlignment = Alignment.CenterHorizontally,
+                            verticalArrangement = Arrangement.Center,
+                        ) {
+                            Text(content.third, color = HomeBlue, fontSize = 64.sp)
+                            Spacer(Modifier.height(12.dp))
+                            Text(
+                                content.first,
+                                color = Color.White,
+                                fontSize = 30.sp,
+                                fontWeight = FontWeight.Bold,
+                                textAlign = TextAlign.Center,
+                            )
+                            Spacer(Modifier.height(16.dp))
+                            Text(
+                                content.second,
+                                color = MutedText,
+                                fontSize = 18.sp,
+                                textAlign = TextAlign.Center,
+                            )
+                        }
+                    }
+
+                    Row(
+                        horizontalArrangement = Arrangement.spacedBy(10.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        pages.indices.forEach { page ->
+                            Box(
+                                Modifier
+                                    .size(if (pagerState.currentPage == page) 12.dp else 10.dp)
+                                    .background(
+                                        if (pagerState.currentPage == page) {
+                                            Color.White
+                                        } else {
+                                            MutedText.copy(alpha = 0.45f)
+                                        },
+                                        CircleShape,
+                                    )
+                                    .clickable {
+                                        scope.launch { pagerState.animateScrollToPage(page) }
+                                    },
+                            )
+                        }
+                    }
+                    Spacer(Modifier.height(18.dp))
+                    Button(
+                        onClick = {
+                            if (pagerState.currentPage < pages.lastIndex) {
+                                scope.launch {
+                                    pagerState.animateScrollToPage(pagerState.currentPage + 1)
+                                }
+                            } else {
+                                onComplete()
+                            }
+                        },
+                        modifier = Modifier.width(190.dp),
+                    ) {
+                        Text(
+                            if (pagerState.currentPage < pages.lastIndex) "Continue" else "Start scoring",
+                            color = Color.White,
+                        )
+                    }
                 }
             }
         }
