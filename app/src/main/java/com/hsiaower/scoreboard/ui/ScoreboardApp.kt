@@ -1093,7 +1093,7 @@ private fun SettingsScreen(
     var timeouts by remember(settings) { mutableStateOf(settings.timeoutsPerSet.toString()) }
     var timeoutDuration by remember(settings) { mutableStateOf(settings.timeoutDurationSeconds.toString()) }
 
-    SettingsScaffold("Settings", onBack) {
+    SettingsScaffold("Settings", onBack, maxContentWidth = 560.dp) {
         NumberField("Winning score", winningScore) { winningScore = it }
         SettingCheck("Win by 2", winByTwo) {
             winByTwo = it
@@ -1134,16 +1134,33 @@ private fun SettingsScreen(
 }
 
 @Composable
-private fun SettingsScaffold(title: String, onBack: () -> Unit, content: @Composable ColumnScope.() -> Unit) {
+private fun SettingsScaffold(
+    title: String,
+    onBack: () -> Unit,
+    maxContentWidth: Dp = 900.dp,
+    content: @Composable ColumnScope.() -> Unit,
+) {
     Column(
-        Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(24.dp),
-        verticalArrangement = Arrangement.spacedBy(14.dp),
+        modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
+        Row(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp),
+            verticalAlignment = Alignment.CenterVertically,
+        ) {
             TextButton(onClick = onBack) { Text("Back") }
             Text(title, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
         }
-        content()
+        Column(
+            modifier = Modifier
+                .weight(1f)
+                .fillMaxWidth()
+                .widthIn(max = maxContentWidth)
+                .align(Alignment.CenterHorizontally)
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(14.dp),
+            content = content,
+        )
     }
 }
 
