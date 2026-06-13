@@ -1020,11 +1020,28 @@ private fun ArchivedTeamName(
 
 @Composable
 private fun ScreenHeader(title: String, onBack: () -> Unit) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onBack) {
-            Text("\u2039", color = HomeBlue, fontSize = 38.sp)
+    Row(
+        modifier = Modifier
+            .fillMaxWidth()
+            .windowInsetsPadding(
+                WindowInsets.safeDrawing.only(
+                    WindowInsetsSides.Top + WindowInsetsSides.Horizontal,
+                ),
+            )
+            .padding(top = 12.dp, bottom = 12.dp),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        IconButton(
+            onClick = onBack,
+            modifier = Modifier.focusProperties { canFocus = false },
+        ) {
+            Icon(
+                painter = painterResource(R.drawable.ic_arrow_back),
+                contentDescription = "Back",
+                tint = Color.White.copy(alpha = 0.85f),
+            )
         }
-        Text(title.uppercase(), color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
+        Text(title, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
     }
 }
 
@@ -1356,26 +1373,7 @@ private fun SettingsScaffold(
     Column(
         modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp),
     ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .windowInsetsPadding(
-                    WindowInsets.safeDrawing.only(
-                        WindowInsetsSides.Top + WindowInsetsSides.Horizontal,
-                    ),
-                )
-                .padding(top = 12.dp, bottom = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            IconButton(onClick = onBack) {
-                Icon(
-                    painter = painterResource(R.drawable.ic_arrow_back),
-                    contentDescription = "Back",
-                    tint = Color.White.copy(alpha = 0.85f),
-                )
-            }
-            Text(title, color = Color.White, fontSize = 28.sp, fontWeight = FontWeight.Bold)
-        }
+        ScreenHeader(title, onBack)
         Column(
             modifier = Modifier
                 .weight(1f)

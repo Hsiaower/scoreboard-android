@@ -106,18 +106,14 @@ object MatchFinalizer {
         else -> null
     }
 
-    fun finalizedSets(
+    fun setsAfterAwardingCurrentSet(
         winner: Team?,
         team1Sets: Int,
         team2Sets: Int,
-        setsToWin: Int,
-    ): Pair<Int, Int> {
-        val target = setsToWin.coerceAtLeast(1)
-        return when (winner) {
-            Team.TEAM_1 -> team1Sets.coerceAtLeast(target) to team2Sets
-            Team.TEAM_2 -> team1Sets to team2Sets.coerceAtLeast(target)
-            null -> team1Sets to team2Sets
-        }
+    ): Pair<Int, Int> = when (winner) {
+        Team.TEAM_1 -> team1Sets + 1 to team2Sets
+        Team.TEAM_2 -> team1Sets to team2Sets + 1
+        null -> team1Sets to team2Sets
     }
 }
 

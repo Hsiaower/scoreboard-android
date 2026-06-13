@@ -427,12 +427,12 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
         if (_state.value.capturingAction != null) {
             return captureRemoteInput(event)
         }
-        if (_state.value.currentScreen != AppScreen.SCOREBOARD) return false
 
         val relevantMappings = _state.value.remoteMappings.filterValues {
             event.keyCode in it.keyCodes
         }
         if (relevantMappings.isEmpty()) return false
+        if (_state.value.currentScreen != AppScreen.SCOREBOARD) return true
 
         when (event.action) {
             KeyEvent.ACTION_DOWN -> {
@@ -671,12 +671,15 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
         val timeline = state.currentTimeline
         if (!timeline.hasActivity) return
         val finalWinner = winner ?: state.matchWinner
-        val (team1Sets, team2Sets) = MatchFinalizer.finalizedSets(
-            winner = finalWinner,
-            team1Sets = state.match.team1Sets,
-            team2Sets = state.match.team2Sets,
-            setsToWin = state.settings.setsToWin,
-        )
+        val (team1Sets, team2Sets) = if (winner != null) {
+            MatchFinalizer.setsAfterAwardingCurrentSet(
+                winner = winner,
+                team1Sets = state.match.team1Sets,
+                team2Sets = state.match.team2Sets,
+            )
+        } else {
+            state.match.team1Sets to state.match.team2Sets
+        }
         val archived = timeline.copy(
             endedAt = System.currentTimeMillis(),
             team1Name = state.settings.team1Name,

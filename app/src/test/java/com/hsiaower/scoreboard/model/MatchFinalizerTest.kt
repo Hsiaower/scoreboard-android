@@ -21,27 +21,25 @@ class MatchFinalizerTest {
     }
 
     @Test
-    fun `winner receives configured match set target`() {
+    fun `remote finalization awards exactly one current set`() {
         assertEquals(
-            2 to 1,
-            MatchFinalizer.finalizedSets(
+            1 to 0,
+            MatchFinalizer.setsAfterAwardingCurrentSet(
                 winner = Team.TEAM_1,
                 team1Sets = 0,
-                team2Sets = 1,
-                setsToWin = 2,
+                team2Sets = 0,
             ),
         )
     }
 
     @Test
-    fun `finalization does not lower an existing set total`() {
+    fun `remote finalization preserves recorded sets and awards the current set`() {
         assertEquals(
-            3 to 1,
-            MatchFinalizer.finalizedSets(
-                winner = Team.TEAM_1,
-                team1Sets = 3,
-                team2Sets = 1,
-                setsToWin = 2,
+            1 to 1,
+            MatchFinalizer.setsAfterAwardingCurrentSet(
+                winner = Team.TEAM_2,
+                team1Sets = 1,
+                team2Sets = 0,
             ),
         )
     }
@@ -50,11 +48,10 @@ class MatchFinalizerTest {
     fun `tie keeps existing set totals`() {
         assertEquals(
             1 to 1,
-            MatchFinalizer.finalizedSets(
+            MatchFinalizer.setsAfterAwardingCurrentSet(
                 winner = null,
                 team1Sets = 1,
                 team2Sets = 1,
-                setsToWin = 2,
             ),
         )
     }
