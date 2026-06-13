@@ -47,9 +47,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.darkColorScheme
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableLongStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
@@ -82,6 +84,7 @@ import com.hsiaower.scoreboard.model.ScoreboardState
 import com.hsiaower.scoreboard.model.SetTimeline
 import com.hsiaower.scoreboard.model.Team
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import java.time.Instant
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
@@ -545,8 +548,8 @@ private fun CenterControls(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically,
             ) {
-                ActionMenuButton(
-                    symbol = "+",
+                IconActionMenuButton(
+                    iconRes = R.drawable.ic_add,
                     description = "Match actions",
                     expanded = newMenu,
                     onClick = { newMenu = true },
@@ -561,8 +564,8 @@ private fun CenterControls(
                         viewModel.clearScore()
                     })
                 }
-                ActionMenuButton(
-                    symbol = "\u21B6",
+                IconActionMenuButton(
+                    iconRes = R.drawable.ic_undo,
                     description = "Undo and redo",
                     expanded = historyMenu,
                     onClick = { historyMenu = true },
@@ -585,8 +588,8 @@ private fun CenterControls(
                         },
                     )
                 }
-                ActionButton("\u21C4", "Switch sides", viewModel::switchSides)
-                ActionButton("\u27F3", "Rotation setup", viewModel::showRotationPlaceholder)
+                IconActionButton(R.drawable.ic_swap_sides, "Switch sides", viewModel::switchSides)
+                IconActionButton(R.drawable.ic_rotation, "Rotation setup", viewModel::showRotationPlaceholder)
             }
             Row(
                 modifier = Modifier.fillMaxWidth(),
@@ -609,18 +612,12 @@ private fun CenterControls(
                         viewModel.navigate(AppScreen.PREVIOUS_MATCHES)
                     })
                 }
-                ActionButton("\u25A3", "Display placeholder", viewModel::showRotationPlaceholder)
-                ActionButton("\u2605", "Favorite placeholder", viewModel::showRotationPlaceholder)
-                IconButton(
-                    onClick = { viewModel.navigate(AppScreen.SETTINGS) },
-                    modifier = Modifier.size(ControlCellSize),
-                ) {
-                    Icon(
-                        painter = painterResource(R.drawable.ic_settings),
-                        contentDescription = "Settings",
-                        tint = Color.White,
-                    )
-                }
+                IconActionButton(R.drawable.ic_display, "Display placeholder", viewModel::showRotationPlaceholder)
+                IconActionButton(R.drawable.ic_star, "Favorite placeholder", viewModel::showRotationPlaceholder)
+                IconActionButton(
+                    R.drawable.ic_settings,
+                    "Settings",
+                ) { viewModel.navigate(AppScreen.SETTINGS) }
             }
         }
     }
@@ -671,24 +668,14 @@ private fun SetBox(
 }
 
 @Composable
-private fun ActionButton(symbol: String, description: String, onClick: () -> Unit) {
+private fun IconActionButton(iconRes: Int, description: String, onClick: () -> Unit) {
     IconButton(onClick = onClick, modifier = Modifier.size(ControlCellSize)) {
-        Text(symbol, color = Color.White, fontSize = 30.sp)
-    }
-}
-
-@Composable
-private fun ActionMenuButton(
-    symbol: String,
-    description: String,
-    expanded: Boolean,
-    onClick: () -> Unit,
-    onDismiss: () -> Unit,
-    menuContent: @Composable ColumnScope.() -> Unit,
-) {
-    Box(Modifier.size(ControlCellSize)) {
-        ActionButton(symbol, description, onClick)
-        DropdownMenu(expanded = expanded, onDismissRequest = onDismiss, content = menuContent)
+        Icon(
+            painter = painterResource(iconRes),
+            contentDescription = description,
+            tint = Color.White,
+            modifier = Modifier.size(28.dp),
+        )
     }
 }
 
@@ -707,7 +694,7 @@ private fun IconActionMenuButton(
                 painter = painterResource(iconRes),
                 contentDescription = description,
                 tint = Color.White,
-                modifier = Modifier.size(32.dp),
+                modifier = Modifier.size(28.dp),
             )
         }
         DropdownMenu(expanded = expanded, onDismissRequest = onDismiss, content = menuContent)
@@ -734,11 +721,7 @@ private fun MatchHistoryScreen(
             MatchSetBox(timeline.team2Sets, AwayRed)
             Text(timeline.team2Name, color = AwayRed, fontSize = 24.sp, fontWeight = FontWeight.Bold)
         }
-        Text(
-            formatMatchTime(timeline.startedAt),
-            color = MutedText,
-            modifier = Modifier.padding(bottom = 12.dp),
-        )
+        MatchTimeDetails(timeline, Modifier.padding(bottom = 12.dp))
         Card(
             modifier = Modifier.fillMaxSize(),
             colors = CardDefaults.cardColors(containerColor = PanelBackground),
@@ -816,6 +799,11 @@ private fun PreviousMatchesScreen(
                             Column(Modifier.width(150.dp)) {
                                 Text(formatMatchDate(match.startedAt), color = Color.White)
                                 Text(formatMatchTimeOnly(match.startedAt), color = MutedText, fontSize = 13.sp)
+                                Text(
+                                    formatDuration((match.endedAt ?: match.startedAt) - match.startedAt),
+                                    color = MutedText,
+                                    fontSize = 13.sp,
+                                )
                             }
                             Row(
                                 modifier = Modifier.weight(1f),
@@ -946,6 +934,40 @@ private fun formatMatchTimeOnly(timestamp: Long): String =
 
 private fun formatMatchTime(timestamp: Long): String =
     "${formatMatchDate(timestamp)}  ${formatMatchTimeOnly(timestamp)}"
+
+@Composable
+private fun MatchTimeDetails(timeline: MatchTimeline, modifier: Modifier = Modifier) {
+    var now by remember(timeline.id, timeline.endedAt) {
+        mutableLongStateOf(timeline.endedAt ?: System.currentTimeMillis())
+    }
+    LaunchedEffect(timeline.id, timeline.endedAt) {
+        if (timeline.endedAt == null) {
+            while (true) {
+                now = System.currentTimeMillis()
+                delay(1_000)
+            }
+        }
+    }
+    Column(modifier) {
+        Text(formatMatchTime(timeline.startedAt), color = MutedText)
+        Text(
+            "Duration ${formatDuration(now - timeline.startedAt)}",
+            color = MutedText,
+        )
+    }
+}
+
+private fun formatDuration(durationMillis: Long): String {
+    val totalSeconds = (durationMillis.coerceAtLeast(0) / 1_000)
+    val hours = totalSeconds / 3_600
+    val minutes = (totalSeconds % 3_600) / 60
+    val seconds = totalSeconds % 60
+    return if (hours > 0) {
+        "%d:%02d:%02d".format(hours, minutes, seconds)
+    } else {
+        "%02d:%02d".format(minutes, seconds)
+    }
+}
 
 @Composable
 private fun SettingsScreen(
