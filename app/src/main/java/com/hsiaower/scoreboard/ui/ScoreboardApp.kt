@@ -1280,7 +1280,7 @@ private fun RemoteMappingScreen(
     Box(Modifier.fillMaxSize()) {
         SettingsScaffold("Remote mapping", onBack) {
             Text(
-                "Assign a single press, press and hold, or multi-button combination.",
+                "Assignments control the physical left and right court sides, even after switching teams.",
                 color = MutedText,
             )
             RemoteAction.entries.forEach { action ->
@@ -1365,11 +1365,16 @@ private fun RemoteMappingScreen(
                                     "Press the button to hold for ${action.label}."
                                 InputType.MULTI_BUTTON ->
                                     "Hold two or more buttons together, then release."
+                                InputType.MULTI_BUTTON_HOLD ->
+                                    "Hold two or more buttons together for a moment."
                             },
                             color = MutedText,
                             fontSize = 18.sp,
                         )
-                        if (inputType == InputType.MULTI_BUTTON) {
+                        if (
+                            inputType == InputType.MULTI_BUTTON ||
+                            inputType == InputType.MULTI_BUTTON_HOLD
+                        ) {
                             Text(
                                 if (state.capturedKeyCodes.isEmpty()) {
                                     "No buttons detected yet"

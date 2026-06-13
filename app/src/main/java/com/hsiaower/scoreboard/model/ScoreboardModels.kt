@@ -6,10 +6,10 @@ enum class Team {
 }
 
 enum class RemoteAction(val label: String) {
-    TEAM_1_PLUS("Team 1 +1"),
-    TEAM_1_MINUS("Team 1 -1"),
-    TEAM_2_PLUS("Team 2 +1"),
-    TEAM_2_MINUS("Team 2 -1"),
+    TEAM_1_PLUS("Left side +1"),
+    TEAM_1_MINUS("Left side -1"),
+    TEAM_2_PLUS("Right side +1"),
+    TEAM_2_MINUS("Right side -1"),
     RESET("Reset"),
 }
 
@@ -17,6 +17,7 @@ enum class InputType(val label: String) {
     SINGLE_PRESS("Single press"),
     LONG_PRESS("Press and hold"),
     MULTI_BUTTON("Multi-button combination"),
+    MULTI_BUTTON_HOLD("Hold multi-button combination"),
 }
 
 data class RemoteMapping(

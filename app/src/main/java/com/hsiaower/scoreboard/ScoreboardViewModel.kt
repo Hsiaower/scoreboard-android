@@ -425,24 +425,13 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
 
                 relevantMappings.filterValues { it.inputType == InputType.LONG_PRESS }
                     .forEach { (action, mapping) ->
-                        longPressJobs[action]?.cancel()
-                        longPressJobs[action] = viewModelScope.launch {
-                            delay(LONG_PRESS_DURATION_MS)
-                            if (
-                                mapping.keyCodes.all(pressedRemoteKeys::containsKey) &&
-                                mapping.keyCodes.none(consumedRemoteKeys::contains)
-                            ) {
-                                consumedRemoteKeys += mapping.keyCodes
-                                cancelLongPressesFor(mapping.keyCodes, except = action)
-                                performRemoteAction(action)
-                            }
-                        }
+                        scheduleHeldAction(action, mapping)
                     }
 
                 val completedCombination = _state.value.remoteMappings
                     .asSequence()
                     .filter { (action, mapping) ->
-                        mapping.inputType == InputType.MULTI_BUTTON &&
+                        mapping.inputType in MULTI_BUTTON_INPUT_TYPES &&
                             action !in activeMultiButtonActions &&
                             mapping.keyCodes.all(pressedRemoteKeys::containsKey) &&
                             mapping.keyCodes.none(consumedRemoteKeys::contains) &&
@@ -454,7 +443,11 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
                     activeMultiButtonActions += action
                     consumedRemoteKeys += mapping.keyCodes
                     cancelLongPressesFor(mapping.keyCodes)
-                    performRemoteAction(action)
+                    if (mapping.inputType == InputType.MULTI_BUTTON_HOLD) {
+                        scheduleHeldAction(action, mapping)
+                    } else {
+                        performRemoteAction(action)
+                    }
                 }
             }
 
@@ -469,7 +462,10 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
                         ?.let(::performRemoteAction)
                 }
 
-                relevantMappings.filterValues { it.inputType == InputType.LONG_PRESS }
+                relevantMappings.filterValues {
+                    it.inputType == InputType.LONG_PRESS ||
+                        it.inputType == InputType.MULTI_BUTTON_HOLD
+                }
                     .keys
                     .forEach { action -> longPressJobs.remove(action)?.cancel() }
                 pressedRemoteKeys -= event.keyCode
@@ -484,6 +480,24 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
             else -> return false
         }
         return true
+    }
+
+    private fun scheduleHeldAction(action: RemoteAction, mapping: RemoteMapping) {
+        longPressJobs[action]?.cancel()
+        longPressJobs[action] = viewModelScope.launch {
+            delay(LONG_PRESS_DURATION_MS)
+            if (
+                mapping.keyCodes.all(pressedRemoteKeys::containsKey) &&
+                (
+                    mapping.inputType == InputType.MULTI_BUTTON_HOLD ||
+                        mapping.keyCodes.none(consumedRemoteKeys::contains)
+                    )
+            ) {
+                consumedRemoteKeys += mapping.keyCodes
+                cancelLongPressesFor(mapping.keyCodes, except = action)
+                performRemoteAction(action)
+            }
+        }
     }
 
     private fun isWithinCombinationWindow(keyCodes: Set<Int>): Boolean {
@@ -510,7 +524,7 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
         when (event.action) {
             KeyEvent.ACTION_DOWN -> {
                 if (event.repeatCount > 0) return true
-                if (inputType == InputType.MULTI_BUTTON) {
+                if (inputType in MULTI_BUTTON_INPUT_TYPES) {
                     _state.update { it.copy(capturedKeyCodes = it.capturedKeyCodes + event.keyCode) }
                 } else {
                     saveRemoteMapping(action, inputType, setOf(event.keyCode))
@@ -518,7 +532,7 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
             }
 
             KeyEvent.ACTION_UP -> {
-                if (inputType == InputType.MULTI_BUTTON) {
+                if (inputType in MULTI_BUTTON_INPUT_TYPES) {
                     val capturedKeys = _state.value.capturedKeyCodes
                     if (capturedKeys.size >= 2) {
                         saveRemoteMapping(action, inputType, capturedKeys)
@@ -551,11 +565,14 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
     }
 
     private fun performRemoteAction(action: RemoteAction) {
+        val team1OnLeft = _state.value.match.team1OnLeft
+        val leftTeam = if (team1OnLeft) Team.TEAM_1 else Team.TEAM_2
+        val rightTeam = if (team1OnLeft) Team.TEAM_2 else Team.TEAM_1
         when (action) {
-            RemoteAction.TEAM_1_PLUS -> adjustScore(Team.TEAM_1, 1)
-            RemoteAction.TEAM_1_MINUS -> adjustScore(Team.TEAM_1, -1)
-            RemoteAction.TEAM_2_PLUS -> adjustScore(Team.TEAM_2, 1)
-            RemoteAction.TEAM_2_MINUS -> adjustScore(Team.TEAM_2, -1)
+            RemoteAction.TEAM_1_PLUS -> adjustScore(leftTeam, 1)
+            RemoteAction.TEAM_1_MINUS -> adjustScore(leftTeam, -1)
+            RemoteAction.TEAM_2_PLUS -> adjustScore(rightTeam, 1)
+            RemoteAction.TEAM_2_MINUS -> adjustScore(rightTeam, -1)
             RemoteAction.RESET -> clearScore()
         }
     }
@@ -602,6 +619,10 @@ class ScoreboardViewModel(application: Application) : AndroidViewModel(applicati
     private companion object {
         const val LONG_PRESS_DURATION_MS = 600L
         const val MULTI_BUTTON_WINDOW_MS = 350L
+        val MULTI_BUTTON_INPUT_TYPES = setOf(
+            InputType.MULTI_BUTTON,
+            InputType.MULTI_BUTTON_HOLD,
+        )
     }
 
     private fun recordTimeout(team: Team, team1Score: Int, team2Score: Int) {
